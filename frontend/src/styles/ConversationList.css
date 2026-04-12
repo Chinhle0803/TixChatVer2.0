@@ -1,0 +1,127 @@
+/* Conversation List Styles */
+.conversation-list {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #e5e5e5;
+}
+
+.conversation-search {
+  padding: 12px;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.conversation-search input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #99FFFF;
+  border-radius: 20px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.3s ease;
+}
+
+.conversation-search input:focus {
+  border-color: #66CCCC;
+  box-shadow: 0 0 8px rgba(153, 255, 255, 0.3);
+}
+
+.conversation-items {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #65676b;
+  font-size: 14px;
+}
+
+.conversation-item {
+  display: flex;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.conversation-item:hover,
+.conversation-item.active {
+  background: linear-gradient(135deg, rgba(153, 255, 255, 0.1) 0%, rgba(102, 204, 204, 0.05) 100%);
+  border-left: 3px solid #99FFFF;
+}
+
+.conversation-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.conversation-avatar img,
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(135deg, #99FFFF, #66CCCC);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.online-indicator {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  background-color: #31a24c;
+  border: 3px solid white;
+  border-radius: 50%;
+}
+
+.conversation-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.conversation-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.conversation-preview {
+  font-size: 13px;
+  color: #65676b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.conversation-time {
+  font-size: 12px;
+  color: #65676b;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .conversation-list {
+    border-right: none;
+  }
+}
