@@ -1,27 +1,99 @@
 import ConversationRepository from '../repositories/ConversationRepository.js'
 import ParticipantRepository from '../repositories/ParticipantRepository.js'
-import MessageRepository from '../repositories/MessageRepository.js'
-import UserRepository from '../repositories/UserRepository.js'
 import { conversationEvents } from '../events/EventBus.js'
 import { CONVERSATION_EVENTS } from '../events/EventTypes.js'
 
 export class ConversationService {
+  async findDirectConversationBetweenUsers(userAId, userBId) {
+    const userAParticipants = await ParticipantRepository.findByUserId(userAId, 1000)
+
+    if (!Array.isArray(userAParticipants) || userAParticipants.length === 0) {
+      return null
+    }
+
+    for (const participant of userAParticipants) {
+      const conversationId = participant?.conversationId
+      if (!conversationId) continue
+
+      const conversation = await ConversationRepository.findById(conversationId)
+      if (!conversation) continue
+
+      const type = conversation.type
+      if (type !== '1-1' && type !== 'direct') continue
+
+      const participants = await ParticipantRepository.findByConversationId(conversationId, 100)
+      const allParticipantIds = (participants || []).map((item) => String(item.userId))
+      const activeParticipantIds = (participants || [])
+        .filter((item) => !item?.leftAt)
+        .map((item) => String(item.userId))
+
+      const hasUserA = allParticipantIds.includes(String(userAId))
+      const hasUserB = allParticipantIds.includes(String(userBId))
+
+      if (hasUserA && hasUserB) {
+        return {
+          ...conversation,
+          participants: activeParticipantIds,
+          participantRecords: participants,
+        }
+      }
+    }
+
+    return null
+  }
+
+  async getOrCreateDirectConversation(userAId, userBId) {
+    const existingConversation = await this.findDirectConversationBetweenUsers(userAId, userBId)
+    if (existingConversation) {
+      return existingConversation
+    }
+
+    return this.createConversation('1-1', [userBId], userAId)
+  }
+
   async createConversation(type, participantIds, userId, name = null) {
+    const normalizedType = type === 'direct' ? '1-1' : type
+
     // Validate participants
-    if (type === '1-1' && participantIds.length !== 1) {
+    if (normalizedType === '1-1' && participantIds.length !== 1) {
       throw new Error('1-1 conversation must have exactly 2 participants')
     }
 
-    if (type === 'group' && participantIds.length < 2) {
+    if (normalizedType === 'group' && participantIds.length < 2) {
       throw new Error('Group must have at least 2 participants')
+    }
+
+    if (normalizedType === '1-1') {
+      const targetUserId = participantIds[0]
+      const existingConversation = await this.findDirectConversationBetweenUsers(userId, targetUserId)
+      if (existingConversation) {
+        const participantRecords = existingConversation.participantRecords || []
+        const targetParticipantIds = [String(userId), String(targetUserId)]
+
+        for (const participant of participantRecords) {
+          if (!targetParticipantIds.includes(String(participant.userId))) {
+            continue
+          }
+
+          if (participant.leftAt) {
+            await ParticipantRepository.reactivateParticipant(
+              existingConversation.conversationId,
+              participant.userId,
+              participant.leftAt
+            )
+          }
+        }
+
+        return existingConversation
+      }
     }
 
     // Create conversation
     const participants = [userId, ...participantIds]
     const conversation = await ConversationRepository.create({
       creatorId: userId,
-      type,
-      name: type === 'group' ? name : null,
+      type: normalizedType,
+      name: normalizedType === 'group' ? name : null,
     })
 
     // Create participant records
@@ -29,21 +101,21 @@ export class ConversationService {
       await ParticipantRepository.create({
         conversationId: conversation.conversationId,
         userId: participantId,
-        role: participantId === userId && type === 'group' ? 'admin' : 'member',
+        role: participantId === userId && normalizedType === 'group' ? 'admin' : 'member',
       })
     }
 
     // Emit event
     conversationEvents.emit(CONVERSATION_EVENTS.CREATED, {
       conversationId: conversation.conversationId,
-      type,
+      type: normalizedType,
       participants,
     })
 
     return conversation
   }
 
-  async getConversationById(conversationId) {
+  async getConversationById(conversationId, requesterUserId = null) {
     try {
       const conversation = await ConversationRepository.findById(conversationId)
 
@@ -54,12 +126,24 @@ export class ConversationService {
       // Get participants
       const participants = await ParticipantRepository.findByConversationId(conversationId)
 
+      if (requesterUserId) {
+        const activeParticipantIds = participants
+          .filter((item) => !item?.leftAt)
+          .map((item) => String(item.userId))
+
+        if (!activeParticipantIds.includes(String(requesterUserId))) {
+          throw new Error('You do not have access to this conversation')
+        }
+      }
+
       return {
         ...conversation,
-        participants: participants.map(p => p.userId),
+        participants: participants
+          .filter((item) => !item?.leftAt)
+          .map((item) => item.userId),
       }
     } catch (error) {
-      if (error.message.includes('not found')) {
+      if (error.message.includes('not found') || error.message.includes('do not have access')) {
         throw error
       }
       throw new Error(`Failed to get conversation: ${error.message}`)
@@ -69,7 +153,8 @@ export class ConversationService {
   async getUserConversations(userId, limit = 20) {
     // Get all conversations this user is part of
     const participants = await ParticipantRepository.findByUserId(userId)
-    const conversationIds = participants.map(p => p.conversationId)
+    const activeParticipants = participants.filter((item) => !item?.leftAt)
+    const conversationIds = [...new Set(activeParticipants.map((item) => item.conversationId))]
 
     if (conversationIds.length === 0) {
       return []
@@ -79,7 +164,16 @@ export class ConversationService {
     const conversations = []
     for (const conversationId of conversationIds) {
       try {
-        const conv = await this.getConversationById(conversationId)
+        const conv = await this.getConversationById(conversationId, userId)
+        const participant = activeParticipants.find((item) => item.conversationId === conversationId)
+        const clearedAt = Number(participant?.clearedAt || 0)
+        const updatedAt = Number(conv?.updatedAt || 0)
+
+        // Hide conversation for this user until there is newer activity after clear
+        if (clearedAt && updatedAt <= clearedAt) {
+          continue
+        }
+
         conversations.push(conv)
       } catch (error) {
         // Log error but continue with other conversations
@@ -91,7 +185,7 @@ export class ConversationService {
           conversations.push({
             ...directConv,
             participants: participants
-              .filter(p => p.conversationId === conversationId)
+              .filter(p => p.conversationId === conversationId && !p.leftAt)
               .map(p => p.userId),
           })
         }
@@ -174,15 +268,24 @@ export class ConversationService {
     return conversation
   }
 
-  async deleteConversation(conversationId) {
-    await ConversationRepository.delete(conversationId)
-    await ParticipantRepository.deleteByConversationId(conversationId)
-    await MessageRepository.deleteByConversationId(conversationId)
+  async deleteConversation(conversationId, userId) {
+    const conversation = await ConversationRepository.findById(conversationId)
+    if (!conversation) {
+      throw new Error('Conversation not found')
+    }
 
-    // Emit event
-    conversationEvents.emit(CONVERSATION_EVENTS.DELETED, {
+    const participant = await ParticipantRepository.findOne(conversationId, userId)
+    if (!participant || participant.leftAt) {
+      throw new Error('Conversation already deleted for this user')
+    }
+
+    await ParticipantRepository.clearConversationForUser(conversationId, userId)
+
+    return {
       conversationId,
-    })
+      deletedForUserId: userId,
+      permanentlyDeleted: false,
+    }
   }
 
   async searchConversations(userId, query, limit = 10) {

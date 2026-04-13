@@ -1,8 +1,18 @@
 import messageService from '../services/MessageService.js'
+import conversationService from '../services/ConversationService.js'
 import { sendMessageValidation } from '../utils/validation.js'
 import { getIO } from '../utils/ioInstance.js'
 
 export class MessageController {
+  async getUnreadCounts(req, res, next) {
+    try {
+      const unreadByConversation = await messageService.getUnreadCountsForUser(req.userId)
+      res.status(200).json({ unreadByConversation })
+    } catch (err) {
+      next(err)
+    }
+  }
+
   async sendMessage(req, res, next) {
     try {
       const { error, value } = sendMessageValidation(req.body)
@@ -17,15 +27,19 @@ export class MessageController {
         value.replyTo
       )
 
-      // Broadcast to all participants via socket (including sender)
-      // Sender will skip in listener due to duplicate check
+      // Broadcast to each participant personal room so recipients can
+      // receive the message even when they have not joined the
+      // `conversation:{id}` room yet.
       const io = getIO()
       if (io) {
         const conversationId = value.conversationId
-        const roomName = `conversation:${conversationId}`
-        console.log(`📤 Broadcasting message to room: ${roomName}`, { messageId: message.messageId })
-        io.to(roomName).emit('message:received', {
-          message,
+        const conversation = await conversationService.getConversationById(conversationId)
+        const participants = Array.isArray(conversation?.participants)
+          ? conversation.participants
+          : []
+
+        participants.forEach((participantId) => {
+          io.to(`user:${participantId}`).emit('message:received', { message })
         })
       }
 
@@ -56,6 +70,7 @@ export class MessageController {
 
       const result = await messageService.getConversationMessages(
         conversationId,
+        req.userId,
         parseInt(limit),
         parsedLastEvaluatedKey
       )

@@ -10,6 +10,7 @@ router.post('/', (req, res, next) => {
   console.log('📨 POST /messages endpoint hit')
   messageController.sendMessage(req, res, next)
 })
+router.get('/unread/counts', messageController.getUnreadCounts.bind(messageController))
 router.get('/:conversationId', messageController.getConversationMessages.bind(messageController))
 router.put('/:conversationId/:messageId', messageController.editMessage.bind(messageController))
 router.delete('/:conversationId/:messageId', messageController.deleteMessage.bind(messageController))

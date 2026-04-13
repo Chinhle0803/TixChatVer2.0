@@ -136,6 +136,7 @@ export const messageService = {
     apiClient.post(`/messages/${conversationId}/${messageId}/delivered`),
   markAsSeen: (conversationId) =>
     apiClient.post(`/messages/${conversationId}/seen`),
+  getUnreadCounts: () => apiClient.get('/messages/unread/counts'),
   addEmoji: (conversationId, messageId, emoji) =>
     apiClient.post(`/messages/${conversationId}/${messageId}/emoji`, { emoji }),
   removeEmoji: (conversationId, messageId, emoji) =>

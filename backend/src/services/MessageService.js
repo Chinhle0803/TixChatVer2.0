@@ -13,9 +13,38 @@ export class MessageService {
     }
 
     // Verify sender is a participant
-    const participant = await ParticipantRepository.findOne(conversationId, senderId)
+    let participant = await ParticipantRepository.findOne(conversationId, senderId)
     if (!participant) {
       throw new Error('You are not a participant of this conversation')
+    }
+
+    // Compatibility for legacy behavior: if user had previously been marked as left
+    // in a direct chat, reactivate them while preserving a clear-history boundary.
+    if (participant.leftAt && (conversation.type === '1-1' || conversation.type === 'direct')) {
+      participant = await ParticipantRepository.reactivateParticipant(
+        conversationId,
+        senderId,
+        participant.leftAt
+      )
+    }
+
+    if (participant.leftAt) {
+      throw new Error('You are not a participant of this conversation')
+    }
+
+    // Also reactivate any legacy left participant in this direct conversation so
+    // they receive new messages in the same thread instead of creating a new one.
+    if (conversation.type === '1-1' || conversation.type === 'direct') {
+      const participants = await ParticipantRepository.findByConversationId(conversationId, 100)
+      for (const item of participants || []) {
+        if (item?.leftAt) {
+          await ParticipantRepository.reactivateParticipant(
+            conversationId,
+            item.userId,
+            item.leftAt
+          )
+        }
+      }
     }
 
     // Create message
@@ -40,9 +69,23 @@ export class MessageService {
     return message
   }
 
-  async getConversationMessages(conversationId, limit = 50, lastEvaluatedKey = null) {
+  async getConversationMessages(conversationId, userId, limit = 50, lastEvaluatedKey = null) {
+    const participant = await ParticipantRepository.findOne(conversationId, userId)
+    if (!participant || participant.leftAt) {
+      throw new Error('You are not a participant of this conversation')
+    }
+
     const result = await MessageRepository.getByConversation(conversationId, limit, lastEvaluatedKey)
-    return result
+    const clearedAt = Number(participant.clearedAt || 0)
+
+    if (!clearedAt) {
+      return result
+    }
+
+    return {
+      ...result,
+      messages: (result.messages || []).filter((message) => Number(message.createdAt || 0) > clearedAt),
+    }
   }
 
   async markAsDelivered(messageId, userId) {
@@ -83,6 +126,7 @@ export class MessageService {
     const messages = result.messages || []
 
     // Mark each as seen
+    let latestMessage = null
     for (const message of messages) {
       const seenBy = message.seenBy || []
       if (!seenBy.includes(userId)) {
@@ -91,7 +135,18 @@ export class MessageService {
           seenBy,
         })
       }
+
+      if (!latestMessage) {
+        latestMessage = message
+      }
     }
+
+    await ParticipantRepository.updateReadState(
+      conversationId,
+      userId,
+      latestMessage?.messageId || null,
+      Date.now()
+    )
 
     // Emit event
     messageEvents.emit(MESSAGE_EVENTS.SEEN, {
@@ -100,6 +155,43 @@ export class MessageService {
     })
 
     return messages
+  }
+
+  async getUnreadCount(conversationId, userId) {
+    const participant = await ParticipantRepository.findOne(conversationId, userId)
+    if (!participant || participant.leftAt) {
+      return 0
+    }
+
+    const result = await MessageRepository.getByConversation(conversationId, 10000)
+    const messages = result.messages || []
+    const lastReadAt = Number(participant.lastReadAt || 0)
+    const clearedAt = Number(participant.clearedAt || 0)
+    const threshold = Math.max(lastReadAt, clearedAt)
+
+    return messages.filter((message) => {
+      const createdAt = Number(message.createdAt || 0)
+      return (
+        String(message.senderId) !== String(userId) &&
+        createdAt > threshold
+      )
+    }).length
+  }
+
+  async getUnreadCountsForUser(userId) {
+    const participants = await ParticipantRepository.findByUserId(userId, 1000)
+    const activeParticipants = (participants || []).filter((item) => !item?.leftAt)
+    const unreadByConversation = {}
+
+    for (const participant of activeParticipants) {
+      const conversationId = participant?.conversationId
+      if (!conversationId) continue
+
+      const unreadCount = await this.getUnreadCount(conversationId, userId)
+      unreadByConversation[conversationId] = unreadCount
+    }
+
+    return unreadByConversation
   }
 
   async editMessage(conversationId, messageId, senderId, newContent) {

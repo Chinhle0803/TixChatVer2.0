@@ -43,12 +43,16 @@ export class ConversationController {
   async getConversation(req, res, next) {
     try {
       const conversation = await conversationService.getConversationById(
-        req.params.conversationId
+        req.params.conversationId,
+        req.userId
       )
       res.status(200).json({ conversation: normalizeConversation(conversation) })
     } catch (err) {
       if (err.message.includes('not found')) {
         return res.status(404).json({ error: err.message })
+      }
+      if (err.message.includes('do not have access')) {
+        return res.status(403).json({ error: err.message })
       }
       next(err)
     }
@@ -134,9 +138,21 @@ export class ConversationController {
 
   async deleteConversation(req, res, next) {
     try {
-      await conversationService.deleteConversation(req.params.conversationId)
-      res.status(200).json({ message: 'Conversation deleted successfully' })
+      const result = await conversationService.deleteConversation(
+        req.params.conversationId,
+        req.userId
+      )
+      res.status(200).json({
+        message: 'Conversation deleted for current user',
+        ...result,
+      })
     } catch (err) {
+      if (err.message.includes('not found')) {
+        return res.status(404).json({ error: err.message })
+      }
+      if (err.message.includes('already deleted')) {
+        return res.status(400).json({ error: err.message })
+      }
       next(err)
     }
   }

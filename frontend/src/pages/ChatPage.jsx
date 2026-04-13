@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
 import useChat from '../hooks/useChat'
 import useSocket from '../hooks/useSocket'
+import useChatStore from '../store/chatStore'
 import ConversationList from '../components/ConversationList'
 import ChatWindow from '../components/ChatWindow'
 import ErrorBoundary from '../components/ErrorBoundary'
 import NewConversationModal from '../components/NewConversationModal'
 import '../styles/ChatPage.css'
 import { FiSearch, FiUser, FiLogOut, FiMenu } from 'react-icons/fi'
+import { userService } from '../services/api'
 
 const normalizeId = (value) => {
   if (!value) return ''
@@ -35,6 +37,12 @@ const getConversationParticipantIds = (conversation) => {
     .filter(Boolean)
 }
 
+const getCurrentConversationTypingUsers = (typingUsers, currentConversation) => {
+  const conversationId = normalizeId(currentConversation?._id || currentConversation?.conversationId)
+  if (!conversationId) return {}
+  return typingUsers?.[conversationId] || {}
+}
+
 const ChatPage = () => {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
@@ -49,15 +57,20 @@ const ChatPage = () => {
     getConversations,
     openConversation,
     createConversation,
+  deleteConversation,
     sendMessage,
     loadMoreMessages,
     editMessage,
     deleteMessage,
     toggleMessageReaction,
+    startTyping,
+    stopTyping,
   } = useChat()
-
-  const [onlineUsers, setOnlineUsers] = useState([])
-  const [typingUsers, setTypingUsers] = useState({})
+  const onlineUsers = useChatStore((state) => state.onlineUsers)
+  const typingUsers = useChatStore((state) => state.typingUsers)
+  const unreadByConversation = useChatStore((state) => state.unreadByConversation)
+  const friendRequestCount = useChatStore((state) => state.friendRequestCount)
+  const setFriendRequestCount = useChatStore((state) => state.setFriendRequestCount)
   const [showSidebar, setShowSidebar] = useState(true)
   const [showNewConversationModal, setShowNewConversationModal] = useState(false)
 
@@ -67,6 +80,28 @@ const ChatPage = () => {
   useEffect(() => {
     getConversations()
   }, [])
+
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadInitialFriendRequestsCount = async () => {
+      try {
+        const response = await userService.getFriendRequests()
+        if (isCancelled) return
+
+        const requests = response?.data?.requests || []
+        setFriendRequestCount(requests.length)
+      } catch (error) {
+        console.warn('⚠️ Failed to load friend request count:', error?.message || error)
+      }
+    }
+
+    loadInitialFriendRequestsCount()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [setFriendRequestCount])
 
   const handleSelectConversation = async (conversation) => {
     await openConversation(conversation._id || conversation.conversationId)
@@ -107,6 +142,22 @@ const ChatPage = () => {
     } catch (err) {
       console.error('Error reacting to message:', err)
       window.alert(err.response?.data?.error || 'Thả cảm xúc thất bại')
+    }
+  }
+
+  const handleDeleteConversation = async () => {
+    if (!currentConversation) return
+
+  const shouldDelete = window.confirm('Bạn có chắc muốn xóa đoạn chat này khỏi danh sách của bạn không? Bên kia vẫn sẽ còn thấy cuộc trò chuyện.')
+    if (!shouldDelete) return
+
+    try {
+      const conversationId = currentConversation?._id || currentConversation?.conversationId
+      await deleteConversation(conversationId)
+      setShowSidebar(true)
+    } catch (err) {
+      console.error('Error deleting conversation:', err)
+      window.alert(err.response?.data?.error || 'Xóa đoạn chat thất bại')
     }
   }
 
@@ -167,8 +218,12 @@ const ChatPage = () => {
                 title="Tìm bạn và tạo cuộc trò chuyện"
                 onClick={() => setShowNewConversationModal(true)}
                 aria-label="new conversation"
+                className="action-with-badge"
               >
                 <FiSearch />
+                {friendRequestCount > 0 && (
+                  <span className="action-badge">{friendRequestCount > 99 ? '99+' : friendRequestCount}</span>
+                )}
               </button>
               <button onClick={handleProfileClick} title="Hồ sơ" aria-label="profile">
                 <FiUser />
@@ -200,6 +255,7 @@ const ChatPage = () => {
             selectedConversation={currentConversation}
             onSelectConversation={handleSelectConversation}
             onlineUsers={onlineUsers}
+            unreadByConversation={unreadByConversation}
           />
         </div>
 
@@ -220,11 +276,14 @@ const ChatPage = () => {
               onDeleteMessage={handleDeleteMessage}
               onEditMessage={handleEditMessage}
               onReactMessage={handleReactToMessage}
+              onDeleteConversation={handleDeleteConversation}
               onLoadMoreMessages={loadMoreMessages}
               hasMoreMessages={hasMoreMessages}
               loadingMoreMessages={loadingMoreMessages}
-              typingUsers={typingUsers}
+              typingUsers={getCurrentConversationTypingUsers(typingUsers, currentConversation)}
               loading={loading}
+              onTypingStart={startTyping}
+              onTypingStop={stopTyping}
             />
           </ErrorBoundary>
         </div>
@@ -241,6 +300,7 @@ const ChatPage = () => {
         onClose={() => setShowNewConversationModal(false)}
         currentUserId={user?._id || user?.userId}
         onStartConversation={handleStartConversationWithUser}
+        onPendingRequestsCountChange={setFriendRequestCount}
       />
     </div>
   )

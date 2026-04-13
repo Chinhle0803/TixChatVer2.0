@@ -90,6 +90,7 @@ const ConversationList = ({
   selectedConversation,
   onSelectConversation,
   onlineUsers,
+  unreadByConversation = {},
   onSearch,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -237,6 +238,13 @@ const ConversationList = ({
     return onlineUsers?.some((u) => normalizeId(u?._id || u?.userId) === normalizeId(userId))
   }
 
+  const getUnreadCount = (conv) => {
+    const conversationId = normalizeId(conv?._id || conv?.conversationId)
+    const fromMap = Number(unreadByConversation?.[conversationId] || 0)
+    const fromConversation = Number(conv?.unreadCount || 0)
+    return Math.max(fromMap, fromConversation)
+  }
+
   return (
     <div className="conversation-list">
       <div className="conversation-search">
@@ -252,7 +260,10 @@ const ConversationList = ({
         {conversations.length === 0 ? (
           <div className="empty-state">Chưa có cuộc trò chuyện</div>
         ) : (
-          conversations.map((conv) => (
+          conversations.map((conv) => {
+            const unreadCount = getUnreadCount(conv)
+
+            return (
             <div
               key={conv._id || conv.conversationId}
               className={`conversation-item ${
@@ -285,9 +296,15 @@ const ConversationList = ({
 
               <div className="conversation-time">
                 {getLastMessageTime(conv) || '—'}
+                {unreadCount > 0 && (
+                  <span className="conversation-unread-badge">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </div>
             </div>
-          ))
+            )
+          })
         )}
       </div>
     </div>

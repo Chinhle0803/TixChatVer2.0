@@ -72,6 +72,16 @@
   border-color: #66CCCC;
 }
 
+.chat-header-actions button.danger {
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.chat-header-actions button.danger:hover {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

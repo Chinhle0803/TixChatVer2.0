@@ -1,10 +1,19 @@
 import { io } from 'socket.io-client'
 import useAuthStore from '../store/authStore'
 import useChatStore from '../store/chatStore'
+import { conversationService } from './api'
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
 
 let socket = null
+
+const normalizeId = (value) => {
+  if (!value) return ''
+  if (typeof value === 'object') {
+    return String(value._id || value.userId || value.id || value.conversationId || value.messageId || '')
+  }
+  return String(value)
+}
 
 export const initSocket = () => {
   const { accessToken } = useAuthStore.getState()
@@ -44,28 +53,97 @@ export const setupSocketListeners = (socket) => {
   })
 
   // Message events
-  socket.on('message:received', (data) => {
+  socket.on('message:received', async (data) => {
     console.log('📩 Socket message:received event received:', data)
     console.log('📩 Message object:', data.message)
     console.log('📩 Message ID:', data.message?._id || data.message?.messageId)
-    
-    // Only add message if it matches the current conversation
-    const { currentConversation } = useChatStore.getState()
-    const messageConvId = data.message?.conversationId
-    const currentConvId = currentConversation?._id || currentConversation?.conversationId
+
+    const message = data?.message
+    const messageConvId = normalizeId(message?.conversationId)
+    if (!messageConvId) return
+
+    // Only append to message list if this conversation is currently open
+    const {
+      currentConversation,
+      conversations,
+      unreadByConversation,
+      setConversations,
+      incrementConversationUnread,
+      clearConversationUnread,
+    } = useChatStore.getState()
+    const currentUserId = normalizeId(
+      useAuthStore.getState()?.user?._id || useAuthStore.getState()?.user?.userId
+    )
+    const senderId = normalizeId(message?.senderId)
+    const currentConvId = normalizeId(currentConversation?._id || currentConversation?.conversationId)
     
     console.log('🔍 Checking conversation match:', {
       messageConvId,
       currentConvId,
-      match: messageConvId === currentConvId
+      match: messageConvId === currentConvId,
     })
-    
-    if (messageConvId === currentConvId) {
+
+    const isCurrentConversation = messageConvId === currentConvId
+    const isOwnMessage = senderId && senderId === currentUserId
+
+    if (isCurrentConversation) {
       console.log('✅ Adding message to current conversation')
-      useChatStore.getState().addMessage(data.message)
-    } else {
-      console.log('⚠️ Message is not for current conversation, skipping')
+      useChatStore.getState().addMessage(message)
+      if (!isOwnMessage) {
+        clearConversationUnread(messageConvId)
+        markAsSeen(messageConvId)
+      }
+    } else if (!isOwnMessage) {
+      incrementConversationUnread(messageConvId)
     }
+
+    // Always upsert conversation preview so unopened chats still appear/update
+    let targetConversation = (conversations || []).find((conversation) => {
+      const id = normalizeId(conversation?._id || conversation?.conversationId)
+      return id === messageConvId
+    })
+
+    if (!targetConversation) {
+      try {
+        const response = await conversationService.getConversation(messageConvId)
+        targetConversation = response?.data?.conversation || null
+      } catch (error) {
+        console.warn('⚠️ Failed to fetch conversation details for incoming message:', error?.message || error)
+      }
+    }
+
+    const fallbackConversation = {
+      _id: messageConvId,
+      conversationId: messageConvId,
+      type: '1-1',
+      participants: [message?.senderId].filter(Boolean),
+    }
+
+    const updatedConversation = {
+      ...(targetConversation || fallbackConversation),
+      latestMessage: message,
+      unreadCount: isCurrentConversation
+        ? 0
+        : isOwnMessage
+          ? Number(unreadByConversation?.[messageConvId] || targetConversation?.unreadCount || 0)
+          : Number(unreadByConversation?.[messageConvId] || targetConversation?.unreadCount || 0) + 1,
+      lastMessageAt: message?.createdAt || message?.updatedAt || Date.now(),
+      updatedAt: message?.createdAt || message?.updatedAt || Date.now(),
+    }
+
+    const nextConversations = (conversations || [])
+      .filter((conversation) => {
+        const id = normalizeId(conversation?._id || conversation?.conversationId)
+        return id !== messageConvId
+      })
+      .concat(updatedConversation)
+      .sort((a, b) => {
+        const timeA = Number(a?.lastMessageAt || a?.updatedAt || 0)
+        const timeB = Number(b?.lastMessageAt || b?.updatedAt || 0)
+        return timeB - timeA
+      })
+
+    setConversations(nextConversations)
   })
 
   socket.on('message:delivered', (data) => {
@@ -73,13 +151,9 @@ export const setupSocketListeners = (socket) => {
   })
 
   socket.on('message:seen', (data) => {
-    // Update all messages as seen in conversation
-    const { messages } = useChatStore.getState()
-    messages.forEach((msg) => {
-      if (msg.conversationId === data.conversationId && !msg.seenBy.includes(data.userId)) {
-        msg.seenBy.push(data.userId)
-      }
-    })
+    useChatStore
+      .getState()
+      .markConversationSeenByUser(data.conversationId, data.userId)
   })
 
   socket.on('message:edited', (data) => {
@@ -137,6 +211,18 @@ export const setupSocketListeners = (socket) => {
 
   socket.on('participant:removed', (data) => {
     console.log('Participant removed:', data.participantId)
+  })
+
+  socket.on('friend_request:new', () => {
+    useChatStore.getState().incrementFriendRequestCount()
+  })
+
+  socket.on('friend_request:accepted', () => {
+    useChatStore.getState().decrementFriendRequestCount()
+  })
+
+  socket.on('friend_request:rejected', () => {
+    useChatStore.getState().decrementFriendRequestCount()
   })
 
   // Error events

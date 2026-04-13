@@ -1,4 +1,5 @@
 import UserRepository from '../repositories/UserRepository.js'
+import conversationService from './ConversationService.js'
 import { userEvents } from '../events/EventBus.js'
 import { USER_EVENTS } from '../events/EventTypes.js'
 import { hashPassword, comparePassword } from '../utils/passwordUtils.js'
@@ -132,12 +133,20 @@ export class UserService {
   async acceptFriendRequest(userId, requesterId) {
     await UserRepository.acceptFriendRequest(userId, requesterId)
 
+    const conversation = await conversationService.getOrCreateDirectConversation(
+      userId,
+      requesterId
+    )
+
     userEvents.emit(USER_EVENTS.FRIEND_REQUEST_ACCEPTED, {
       userId,
       requesterId,
     })
 
-    return true
+    return {
+      accepted: true,
+      conversation,
+    }
   }
 
   async rejectFriendRequest(userId, requesterId) {

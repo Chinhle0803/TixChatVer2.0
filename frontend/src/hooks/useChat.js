@@ -1,6 +1,13 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback } from 'react'
 import { messageService, conversationService } from '../services/api'
-import { getSocket, joinConversation, leaveConversation as leaveConversationSocket, ensureSocketConnected } from '../services/socket'
+import {
+  joinConversation,
+  leaveConversation as leaveConversationSocket,
+  ensureSocketConnected,
+  startTyping as startTypingSocket,
+  stopTyping as stopTypingSocket,
+  markAsSeen as markAsSeenSocket,
+} from '../services/socket'
 import useChatStore from '../store/chatStore'
 import useAuthStore from '../store/authStore'
 
@@ -27,6 +34,8 @@ export const useChat = () => {
   const addMessage = useChatStore((state) => state.addMessage)
   const updateMessage = useChatStore((state) => state.updateMessage)
   const removeMessage = useChatStore((state) => state.deleteMessage)
+  const setUnreadCounts = useChatStore((state) => state.setUnreadCounts)
+  const clearConversationUnread = useChatStore((state) => state.clearConversationUnread)
   const user = useAuthStore((state) => state.user)
 
   const getConversations = useCallback(async () => {
@@ -35,6 +44,9 @@ export const useChat = () => {
     try {
       const response = await conversationService.getConversations()
       const conversationsList = response.data.conversations || []
+  const unreadResponse = await messageService.getUnreadCounts()
+  const unreadByConversation = unreadResponse?.data?.unreadByConversation || {}
+  setUnreadCounts(unreadByConversation)
 
       const enrichedResponses = await Promise.allSettled(
         conversationsList.map(async (conversation) => {
@@ -51,6 +63,7 @@ export const useChat = () => {
           return {
             ...conversation,
             latestMessage,
+            unreadCount: Number(unreadByConversation?.[conversationId] || 0),
             lastMessageAt: latestMessage.createdAt || latestMessage.updatedAt || conversation.lastMessageAt,
           }
         })
@@ -60,13 +73,23 @@ export const useChat = () => {
         result.status === 'fulfilled' ? result.value : conversationsList[index]
       )
 
-      setConversations(enrichedConversations)
+      const normalizedConversations = enrichedConversations.map((conversation) => {
+        const conversationId = conversation?._id || conversation?.conversationId
+        if (!conversationId) return conversation
+
+        return {
+          ...conversation,
+          unreadCount: Number(unreadByConversation?.[conversationId] || conversation?.unreadCount || 0),
+        }
+      })
+
+      setConversations(normalizedConversations)
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load conversations')
     } finally {
       setLoading(false)
     }
-  }, [setConversations])
+  }, [setConversations, setUnreadCounts])
 
   const openConversation = useCallback(
     async (conversationId) => {
@@ -101,10 +124,31 @@ export const useChat = () => {
         setMessageCursor(messagesResponse.data?.lastEvaluatedKey || null)
         setHasMoreMessages(Boolean(messagesResponse.data?.lastEvaluatedKey))
         
+        try {
+          await messageService.markAsSeen(conversationId)
+          clearConversationUnread(conversationId)
+
+          const nextConversations = conversations.map((conversationItem) => {
+            const currentId = conversationItem._id || conversationItem.conversationId
+            if (normalizeId(currentId) !== normalizeId(conversationId)) {
+              return conversationItem
+            }
+
+            return {
+              ...conversationItem,
+              unreadCount: 0,
+            }
+          })
+          setConversations(nextConversations)
+        } catch (seenErr) {
+          console.warn('⚠️ Failed to mark conversation as seen:', seenErr?.message || seenErr)
+        }
+
         // Ensure socket is connected before joining room
         try {
           await ensureSocketConnected()
           await joinConversation(conversationId)
+          markAsSeenSocket(conversationId)
         } catch (socketErr) {
           console.warn('⚠️ Socket join failed:', socketErr.message)
           // Continue anyway - user can still see messages but real-time won't work
@@ -115,7 +159,7 @@ export const useChat = () => {
         setLoading(false)
       }
     },
-    [setCurrentConversation, setMessages]
+    [clearConversationUnread, conversations, setConversations, setCurrentConversation, setMessages]
   )
 
   const createConversation = useCallback(
@@ -360,6 +404,68 @@ export const useChat = () => {
     setHasMoreMessages(false)
   }, [currentConversation])
 
+  const deleteConversation = useCallback(
+    async (conversationIdOverride = null) => {
+      const conversationId =
+        conversationIdOverride ||
+        currentConversation?._id ||
+        currentConversation?.conversationId
+
+      if (!conversationId) {
+        setError('No conversation selected')
+        return
+      }
+
+      setError(null)
+      try {
+        await leaveConversationSocket(conversationId).catch((socketErr) => {
+          console.warn('⚠️ Failed to leave conversation before delete:', socketErr?.message || socketErr)
+        })
+
+        await conversationService.deleteConversation(conversationId)
+
+        const nextConversations = conversations.filter((conversation) => {
+          const id = conversation._id || conversation.conversationId
+          return normalizeId(id) !== normalizeId(conversationId)
+        })
+
+        setConversations(nextConversations)
+
+        const currentConversationId =
+          currentConversation?._id || currentConversation?.conversationId
+
+        if (normalizeId(currentConversationId) === normalizeId(conversationId)) {
+          setCurrentConversation(null)
+          setMessages([])
+          setMessageCursor(null)
+          setHasMoreMessages(false)
+        }
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to delete conversation')
+        throw err
+      }
+    },
+    [
+      conversations,
+      currentConversation,
+      setConversations,
+      setCurrentConversation,
+      setMessages,
+    ]
+  )
+
+  const startTyping = useCallback(() => {
+    const conversationId = currentConversation?._id || currentConversation?.conversationId
+    if (!conversationId) return
+    startTypingSocket(conversationId)
+  }, [currentConversation])
+
+  const stopTyping = useCallback(() => {
+    const conversationId = currentConversation?._id || currentConversation?.conversationId
+    if (!conversationId) return
+    stopTypingSocket(conversationId)
+  }, [currentConversation])
+
   return {
     conversations,
     currentConversation,
@@ -371,12 +477,15 @@ export const useChat = () => {
     getConversations,
     openConversation,
     leaveConversation,
+  deleteConversation,
     createConversation,
     sendMessage,
     loadMoreMessages,
     editMessage,
     deleteMessage,
     toggleMessageReaction,
+    startTyping,
+    stopTyping,
   }
 }
 

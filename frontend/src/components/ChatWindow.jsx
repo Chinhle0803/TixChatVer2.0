@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import '../styles/ChatWindow.css'
-import { FiPhone, FiVideo, FiInfo } from 'react-icons/fi'
+import { FiPhone, FiVideo, FiInfo, FiTrash2 } from 'react-icons/fi'
 import Message from './Message'
 import { userService } from '../services/api'
 
@@ -61,11 +61,14 @@ const ChatWindow = ({
   onDeleteMessage,
   onEditMessage,
   onReactMessage,
+  onDeleteConversation,
   onLoadMoreMessages,
   hasMoreMessages,
   loadingMoreMessages,
   typingUsers,
   loading,
+  onTypingStart,
+  onTypingStop,
 }) => {
   const [messageInput, setMessageInput] = useState('')
   const [replyingTo, setReplyingTo] = useState(null)
@@ -76,6 +79,8 @@ const ChatWindow = ({
   const inputRef = useRef(null)
   const prevConversationIdRef = useRef('')
   const newestMessageIdRef = useRef('')
+  const typingTimeoutRef = useRef(null)
+  const isTypingRef = useRef(false)
 
   const replyPreviewMap = useMemo(() => {
     const previews = {}
@@ -122,6 +127,7 @@ const ChatWindow = ({
   useEffect(() => {
     if (!conversation) return
 
+    stopTypingNow()
     setEditingMessage(null)
     setReplyingTo(null)
     setMessageInput('')
@@ -194,11 +200,60 @@ const ChatWindow = ({
     }
   }, [conversation, currentUserId, participantProfiles])
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+
+      if (isTypingRef.current) {
+        onTypingStop?.()
+        isTypingRef.current = false
+      }
+    }
+  }, [onTypingStop])
+
+  const stopTypingNow = () => {
+    if (!isTypingRef.current) return
+    onTypingStop?.()
+    isTypingRef.current = false
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = null
+    }
+  }
+
+  const handleInputChange = (event) => {
+    const value = event.target.value
+    setMessageInput(value)
+
+    if (!value.trim()) {
+      stopTypingNow()
+      return
+    }
+
+    if (!isTypingRef.current) {
+      onTypingStart?.()
+      isTypingRef.current = true
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      stopTypingNow()
+    }, 1200)
+  }
+
   const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!messageInput.trim()) return
 
     try {
+      stopTypingNow()
+
       if (editingMessage) {
         await onEditMessage?.(editingMessage._id || editingMessage.messageId, messageInput)
         setEditingMessage(null)
@@ -257,6 +312,15 @@ const ChatWindow = ({
     return names.join(', ') || 'Nhóm chat'
   }, [conversation, currentUserId, participantProfiles])
 
+  const hasTypingUsers = useMemo(() => {
+    if (!typingUsers) return false
+
+    return Object.entries(typingUsers).some(([userId, isTyping]) => {
+      if (!isTyping) return false
+      return normalizeId(userId) !== normalizeId(currentUserId)
+    })
+  }, [currentUserId, typingUsers])
+
   return (
     <div className="chat-window">
       {!conversation ? (
@@ -284,6 +348,15 @@ const ChatWindow = ({
               <button title="Gọi" aria-label="call"><FiPhone /></button>
               <button title="Video" aria-label="video"><FiVideo /></button>
               <button title="Thông tin" aria-label="info"><FiInfo /></button>
+              <button
+                type="button"
+                className="danger"
+                title="Xóa toàn bộ đoạn chat"
+                aria-label="delete conversation"
+                onClick={() => onDeleteConversation?.()}
+              >
+                <FiTrash2 />
+              </button>
             </div>
           </div>
 
@@ -328,7 +401,7 @@ const ChatWindow = ({
             )}
 
             {/* Typing Indicator */}
-            {typingUsers && Object.values(typingUsers).some((t) => t) && (
+            {hasTypingUsers && (
               <div className="typing-indicator">
                 <span></span>
                 <span></span>
@@ -361,7 +434,7 @@ const ChatWindow = ({
                 ref={inputRef}
                 type="text"
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
+                onChange={handleInputChange}
                 placeholder={editingMessage ? 'Sửa tin nhắn...' : 'Nhập tin nhắn...'}
                 className="chat-input"
               />

@@ -87,10 +87,17 @@ export class UserController {
   async acceptFriendRequest(req, res, next) {
     try {
       const { requesterId } = req.body
-      await userService.acceptFriendRequest(req.userId, requesterId)
+      const result = await userService.acceptFriendRequest(req.userId, requesterId)
+      const conversation = result?.conversation
+        ? {
+            ...result.conversation,
+            _id: result.conversation.conversationId,
+          }
+        : null
 
       res.status(200).json({
         message: 'Friend request accepted',
+        conversation,
       })
     } catch (err) {
       res.status(400).json({ error: err.message })

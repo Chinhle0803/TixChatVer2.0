@@ -14,6 +14,8 @@ const useChatStore = create((set) => ({
   messages: [],
   onlineUsers: [],
   typingUsers: {},
+  unreadByConversation: {},
+  friendRequestCount: 0,
 
   setConversations: (conversations) => set({ conversations }),
 
@@ -77,6 +79,61 @@ const useChatStore = create((set) => ({
         },
       },
     })),
+
+  markConversationSeenByUser: (conversationId, userId) =>
+    set((state) => ({
+      messages: state.messages.map((message) => {
+        const messageConversationId = normalizeId(message?.conversationId)
+        if (messageConversationId !== normalizeId(conversationId)) {
+          return message
+        }
+
+        const currentSeenBy = Array.isArray(message?.seenBy) ? message.seenBy : []
+        if (currentSeenBy.includes(userId)) {
+          return message
+        }
+
+        return {
+          ...message,
+          seenBy: [...currentSeenBy, userId],
+        }
+      }),
+    })),
+
+  setUnreadCounts: (counts) => set({ unreadByConversation: counts || {} }),
+
+  setConversationUnreadCount: (conversationId, count) =>
+    set((state) => ({
+      unreadByConversation: {
+        ...state.unreadByConversation,
+        [conversationId]: Math.max(0, Number(count) || 0),
+      },
+    })),
+
+  incrementConversationUnread: (conversationId) =>
+    set((state) => ({
+      unreadByConversation: {
+        ...state.unreadByConversation,
+        [conversationId]: (Number(state.unreadByConversation?.[conversationId]) || 0) + 1,
+      },
+    })),
+
+  clearConversationUnread: (conversationId) =>
+    set((state) => ({
+      unreadByConversation: {
+        ...state.unreadByConversation,
+        [conversationId]: 0,
+      },
+    })),
+
+  setFriendRequestCount: (count) =>
+    set({ friendRequestCount: Math.max(0, Number(count) || 0) }),
+
+  incrementFriendRequestCount: () =>
+    set((state) => ({ friendRequestCount: (state.friendRequestCount || 0) + 1 })),
+
+  decrementFriendRequestCount: () =>
+    set((state) => ({ friendRequestCount: Math.max(0, (state.friendRequestCount || 0) - 1) })),
 }))
 
 export default useChatStore

@@ -321,18 +321,41 @@ class MessageRepository {
    */
   async deleteByConversationId(conversationId) {
     try {
-      // Get all messages in conversation
-      const messages = await this.findByConversationId(conversationId, 1000)
+      let lastEvaluatedKey = null
 
-      // Hard delete each message
-      for (const message of messages) {
-        await this.hardDelete(conversationId, message.messageId)
-      }
+      do {
+        const { messages, lastEvaluatedKey: nextKey } = await this.getByConversation(
+          conversationId,
+          100,
+          lastEvaluatedKey
+        )
+
+        for (const message of messages || []) {
+          await this.hardDelete(conversationId, message.messageId)
+        }
+
+        lastEvaluatedKey = nextKey || null
+      } while (lastEvaluatedKey)
 
       return true
     } catch (error) {
       throw new Error(`Failed to delete conversation messages: ${error.message}`)
     }
+  }
+
+  /**
+   * Backward-compatible alias used by older code paths
+   */
+  async findByConversationId(conversationId, limit = 50, lastEvaluatedKey = null) {
+    const { messages } = await this.getByConversation(conversationId, limit, lastEvaluatedKey)
+    return messages || []
+  }
+
+  /**
+   * Delete all messages in conversation (legacy alias)
+   */
+  async deleteAllByConversationId(conversationId) {
+    return this.deleteByConversationId(conversationId)
   }
 }
 

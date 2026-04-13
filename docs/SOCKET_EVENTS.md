@@ -227,6 +227,48 @@ socket.on('typing:stop', (data) => {
 
 ---
 
+## Friend Request Events
+
+### Server → Client
+
+#### `friend_request:new`
+Fired to the receiver when a new friend request arrives.
+
+```javascript
+socket.on('friend_request:new', ({ fromUserId }) => {
+  // Increase pending friend-request badge
+})
+```
+
+#### `friend_request:sent`
+Fired to the sender after sending a friend request.
+
+```javascript
+socket.on('friend_request:sent', ({ toUserId }) => {
+  // Optional: update sent-request state
+})
+```
+
+#### `friend_request:accepted`
+Fired when a friend request is accepted.
+
+```javascript
+socket.on('friend_request:accepted', ({ byUserId }) => {
+  // Refresh friend list / pending badge
+})
+```
+
+#### `friend_request:rejected`
+Fired to request sender when the request is rejected.
+
+```javascript
+socket.on('friend_request:rejected', ({ byUserId }) => {
+  // Optional: update sent-request state
+})
+```
+
+---
+
 ## Presence & Online Status
 
 ### Client → Server

@@ -20,10 +20,12 @@ const NewConversationModal = ({
   onClose,
   currentUserId,
   onStartConversation,
+  onPendingRequestsCountChange,
 }) => {
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [friendIds, setFriendIds] = useState([])
+  const [friendUsers, setFriendUsers] = useState([])
   const [pendingRequestIds, setPendingRequestIds] = useState([])
   const [pendingRequestUsers, setPendingRequestUsers] = useState([])
   const [sentRequestIds, setSentRequestIds] = useState([])
@@ -54,8 +56,10 @@ const NewConversationModal = ({
       setFriendIds(nextFriends)
       setPendingRequestIds(nextRequests)
       setSentRequestIds(nextSent)
+  onPendingRequestsCountChange?.(nextRequests.length)
 
-      const profileResults = await Promise.allSettled(
+      // Fetch profiles for pending requests
+      const pendingProfileResults = await Promise.allSettled(
         nextRequests.map(async (userId) => {
           const response = await userService.getProfile(userId)
           return response?.data?.user || null
@@ -63,7 +67,21 @@ const NewConversationModal = ({
       )
 
       setPendingRequestUsers(
-        profileResults
+        pendingProfileResults
+          .filter((item) => item.status === 'fulfilled' && item.value)
+          .map((item) => item.value)
+      )
+
+      // Fetch profiles for friends so we can show them in a dedicated section
+      const friendProfileResults = await Promise.allSettled(
+        nextFriends.map(async (userId) => {
+          const response = await userService.getProfile(userId)
+          return response?.data?.user || null
+        })
+      )
+
+      setFriendUsers(
+        friendProfileResults
           .filter((item) => item.status === 'fulfilled' && item.value)
           .map((item) => item.value)
       )
@@ -119,6 +137,8 @@ const NewConversationModal = ({
     await withActionLoading(`accept-${userId}`, async () => {
       await userService.acceptFriendRequest(userId)
       await refreshData()
+      await onStartConversation?.(userId)
+      onClose?.()
     })
   }
 
@@ -133,6 +153,16 @@ const NewConversationModal = ({
     await withActionLoading(`chat-${userId}`, async () => {
       await onStartConversation?.(userId)
       onClose?.()
+    })
+  }
+
+  const handleRemoveFriend = async (userId) => {
+    const confirmed = window.confirm('Bạn có chắc muốn hủy kết bạn với người này không?')
+    if (!confirmed) return
+
+    await withActionLoading(`unfriend-${userId}`, async () => {
+      await userService.removeFriend(userId)
+      await refreshData()
     })
   }
 
@@ -199,7 +229,48 @@ const NewConversationModal = ({
         </div>
 
         <div className="new-conversation-section">
+          <h4>Danh sách bạn bè</h4>
+          {loading ? (
+            <p className="empty-state">Đang tải danh sách bạn bè...</p>
+          ) : friendUsers.length === 0 ? (
+            <p className="empty-state">Bạn chưa có bạn bè nào</p>
+          ) : (
+            friendUsers.map((user) => {
+              const userId = normalizeId(user.userId || user._id)
+
+              return (
+                <div key={userId} className="user-result-item">
+                  <div>
+                    <p className="user-name">{getDisplayName(user)}</p>
+                    <p className="user-subtext">@{user.username || 'unknown'}</p>
+                  </div>
+
+                  <div className="user-actions">
+                    <button
+                      className="secondary"
+                      disabled={Boolean(actionLoading[`chat-${userId}`])}
+                      onClick={() => handleStartConversation(userId)}
+                    >
+                      Nhắn tin
+                    </button>
+
+                    <button
+                      className="danger"
+                      disabled={Boolean(actionLoading[`unfriend-${userId}`])}
+                      onClick={() => handleRemoveFriend(userId)}
+                    >
+                      Hủy kết bạn
+                    </button>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        <div className="new-conversation-section">
           <h4>Kết quả tìm kiếm</h4>
+
           {searchResults.length === 0 ? (
             <p className="empty-state">Nhập từ khóa để tìm bạn mới</p>
           ) : (
@@ -226,8 +297,12 @@ const NewConversationModal = ({
                     </button>
 
                     {isFriend ? (
-                      <button className="success" disabled>
-                        Bạn bè
+                      <button
+                        className="danger"
+                        disabled={Boolean(actionLoading[`unfriend-${userId}`])}
+                        onClick={() => handleRemoveFriend(userId)}
+                      >
+                        Hủy kết bạn
                       </button>
                     ) : isPending ? (
                       <button

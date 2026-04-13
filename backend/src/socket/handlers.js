@@ -1,8 +1,10 @@
 import { verifyToken } from '../utils/tokenUtils.js'
 import userService from '../services/UserService.js'
 import messageService from '../services/MessageService.js'
-import { messageEvents, conversationEvents } from '../events/EventBus.js'
+import conversationService from '../services/ConversationService.js'
+import { messageEvents, conversationEvents, userEvents } from '../events/EventBus.js'
 import {
+  USER_EVENTS,
   MESSAGE_EVENTS,
   CONVERSATION_EVENTS,
   TYPING_EVENTS,
@@ -30,6 +32,9 @@ export const initializeSocketHandlers = (io) => {
   io.on('connection', async (socket) => {
     console.log(`✅ User connected: ${socket.userId}`)
 
+    // Join personal room so server can push direct events to this user
+    socket.join(`user:${socket.userId}`)
+
     // Store socket connection
     userSockets.set(socket.userId, socket.id)
 
@@ -55,9 +60,17 @@ export const initializeSocketHandlers = (io) => {
           data.replyTo
         )
 
-        // Emit to all participants in conversation (including sender)
-        io.to(`conversation:${data.conversationId}`).emit('message:received', {
-          message,
+        // Emit directly to each participant so recipients receive messages
+        // even when they haven't opened/joined this conversation room yet.
+        const conversation = await conversationService.getConversationById(data.conversationId)
+        const participantIds = Array.isArray(conversation?.participants)
+          ? conversation.participants
+          : []
+
+        participantIds.forEach((participantId) => {
+          io.to(`user:${participantId}`).emit('message:received', {
+            message,
+          })
         })
 
         // Send acknowledgment callback to sender
@@ -253,6 +266,32 @@ export const initializeSocketHandlers = (io) => {
   conversationEvents.on(CONVERSATION_EVENTS.PARTICIPANT_REMOVED, (data) => {
     io.to(`conversation:${data.conversationId}`).emit('participant:removed', {
       participantId: data.participantId,
+    })
+  })
+
+  userEvents.on(USER_EVENTS.FRIEND_REQUEST_SENT, (data) => {
+    io.to(`user:${data.friendId}`).emit('friend_request:new', {
+      fromUserId: data.userId,
+    })
+
+    io.to(`user:${data.userId}`).emit('friend_request:sent', {
+      toUserId: data.friendId,
+    })
+  })
+
+  userEvents.on(USER_EVENTS.FRIEND_REQUEST_ACCEPTED, (data) => {
+    io.to(`user:${data.userId}`).emit('friend_request:accepted', {
+      byUserId: data.requesterId,
+    })
+
+    io.to(`user:${data.requesterId}`).emit('friend_request:accepted', {
+      byUserId: data.userId,
+    })
+  })
+
+  userEvents.on(USER_EVENTS.FRIEND_REQUEST_REJECTED, (data) => {
+    io.to(`user:${data.requesterId}`).emit('friend_request:rejected', {
+      byUserId: data.userId,
     })
   })
 }

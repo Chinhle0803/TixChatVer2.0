@@ -545,6 +545,24 @@ POST /messages/:conversationId/seen
 
 ---
 
+### Get Unread Counts
+```
+GET /messages/unread/counts
+```
+**Protected:** ✅ Yes
+
+**Response:**
+```json
+{
+  "unreadByConversation": {
+    "conversation_id_1": 3,
+    "conversation_id_2": 0
+  }
+}
+```
+
+---
+
 ### Add Emoji
 ```
 POST /messages/:messageId/emoji

@@ -19,6 +19,7 @@ class ParticipantRepository {
       role: participantData.role || 'member', // 'admin' or 'member'
       joinedAt: timestamp,
       leftAt: null,
+      clearedAt: null,
     }
 
     try {
@@ -188,6 +189,98 @@ class ParticipantRepository {
       return this.findById(conversationId, userId)
     } catch (error) {
       throw new Error(`Failed to mark participant as left: ${error.message}`)
+    }
+  }
+
+  /**
+   * Clear conversation history for participant (user-scoped delete)
+   */
+  async clearConversationForUser(conversationId, userId) {
+    try {
+      const participant = await this.findById(conversationId, userId)
+      if (!participant) {
+        throw new Error('Participant not found')
+      }
+
+      if (participant.leftAt) {
+        throw new Error('Participant has left this conversation')
+      }
+
+      await docClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          participantId: participant.participantId,
+        },
+        UpdateExpression: 'SET clearedAt = :clearedAt',
+        ExpressionAttributeValues: {
+          ':clearedAt': Date.now(),
+        },
+      }))
+
+      return this.findById(conversationId, userId)
+    } catch (error) {
+      throw new Error(`Failed to clear conversation for user: ${error.message}`)
+    }
+  }
+
+  /**
+   * Update participant read state
+   */
+  async updateReadState(conversationId, userId, lastReadMessageId = null, lastReadAt = Date.now()) {
+    try {
+      const participant = await this.findById(conversationId, userId)
+      if (!participant) {
+        throw new Error('Participant not found')
+      }
+
+      await docClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          participantId: participant.participantId,
+        },
+        UpdateExpression: 'SET lastReadMessageId = :lastReadMessageId, lastReadAt = :lastReadAt',
+        ExpressionAttributeValues: {
+          ':lastReadMessageId': lastReadMessageId,
+          ':lastReadAt': Number(lastReadAt) || Date.now(),
+        },
+      }))
+
+      return this.findById(conversationId, userId)
+    } catch (error) {
+      throw new Error(`Failed to update participant read state: ${error.message}`)
+    }
+  }
+
+  /**
+   * Reactivate participant who previously left conversation
+   */
+  async reactivateParticipant(conversationId, userId, clearFromTimestamp = null) {
+    try {
+      const participant = await this.findById(conversationId, userId)
+      if (!participant) {
+        throw new Error('Participant not found')
+      }
+
+      const effectiveClearAt = Math.max(
+        Number(participant.clearedAt || 0),
+        Number(clearFromTimestamp || 0)
+      )
+
+      await docClient.send(new UpdateCommand({
+        TableName: TABLE_NAME,
+        Key: {
+          participantId: participant.participantId,
+        },
+        UpdateExpression: 'SET leftAt = :leftAt, clearedAt = :clearedAt',
+        ExpressionAttributeValues: {
+          ':leftAt': null,
+          ':clearedAt': effectiveClearAt || null,
+        },
+      }))
+
+      return this.findById(conversationId, userId)
+    } catch (error) {
+      throw new Error(`Failed to reactivate participant: ${error.message}`)
     }
   }
 
