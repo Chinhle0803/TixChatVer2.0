@@ -1,5 +1,9 @@
 import React from 'react'
 import '../styles/Message.css'
+// icons
+import { FiCornerUpLeft, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import { MdDone, MdDoneAll } from 'react-icons/md'
+import { FaRegSmile } from 'react-icons/fa'
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
 
@@ -107,30 +111,30 @@ const Message = ({
 
           {isOwnMessage && (
             <span className="message-status">
-              {message.status === 'seen' && isSeen && '✓✓'}
-              {message.status === 'delivered' && '✓✓'}
-              {message.status === 'sent' && '✓'}
+                {message.status === 'seen' && isSeen && <MdDoneAll />}
+                {message.status === 'delivered' && <MdDoneAll />}
+                {message.status === 'sent' && <MdDone />}
             </span>
           )}
         </div>
       </div>
 
       <div className="message-actions">
-        <button onClick={() => onReply?.(message)} title="Trả lời">
-          ↩️
-        </button>
+          <button onClick={() => onReply?.(message)} title="Trả lời" aria-label="reply">
+            <FiCornerUpLeft />
+          </button>
 
         {isOwnMessage ? (
           <>
-            <button onClick={() => onEdit?.(message)} title="Chỉnh sửa">
-              ✏️
-            </button>
-            <button onClick={() => onDelete?.(messageId)} title="Xóa">
-              🗑️
-            </button>
+              <button onClick={() => onEdit?.(message)} title="Chỉnh sửa" aria-label="edit">
+                <FiEdit2 />
+              </button>
+              <button onClick={() => onDelete?.(messageId)} title="Xóa" aria-label="delete">
+                <FiTrash2 />
+              </button>
           </>
         ) : (
-          <div className="reaction-picker" title="Thả cảm xúc">
+            <div className="reaction-picker" title="Thả cảm xúc">
             {QUICK_EMOJIS.map((emoji) => (
               <button
                 key={emoji}
@@ -142,6 +146,15 @@ const Message = ({
                 {emoji}
               </button>
             ))}
+              <button
+                type="button"
+                className="reaction-open"
+                onClick={() => onReact?.(message, 'toggle-picker')}
+                title="Mở bộ cảm xúc"
+                aria-label="open reactions"
+              >
+                <FaRegSmile />
+              </button>
           </div>
         )}
       </div>

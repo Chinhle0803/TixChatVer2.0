@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import '../styles/ChatWindow.css'
+import { FiPhone, FiVideo, FiInfo } from 'react-icons/fi'
 import Message from './Message'
 import { userService } from '../services/api'
 
@@ -280,9 +281,9 @@ const ChatWindow = ({
               </p>
             </div>
             <div className="chat-header-actions">
-              <button title="Gọi">📞</button>
-              <button title="Video">📹</button>
-              <button title="Thông tin">ℹ️</button>
+              <button title="Gọi" aria-label="call"><FiPhone /></button>
+              <button title="Video" aria-label="video"><FiVideo /></button>
+              <button title="Thông tin" aria-label="info"><FiInfo /></button>
             </div>
           </div>
 

@@ -8,6 +8,7 @@ import ChatWindow from '../components/ChatWindow'
 import ErrorBoundary from '../components/ErrorBoundary'
 import NewConversationModal from '../components/NewConversationModal'
 import '../styles/ChatPage.css'
+import { FiSearch, FiUser, FiLogOut, FiMenu } from 'react-icons/fi'
 
 const normalizeId = (value) => {
   if (!value) return ''
@@ -165,12 +166,15 @@ const ChatPage = () => {
               <button
                 title="Tìm bạn và tạo cuộc trò chuyện"
                 onClick={() => setShowNewConversationModal(true)}
+                aria-label="new conversation"
               >
-                🔍
+                <FiSearch />
               </button>
-              <button onClick={handleProfileClick} title="Hồ sơ">👤</button>
-              <button onClick={handleLogout} title="Đăng xuất">
-                🚪
+              <button onClick={handleProfileClick} title="Hồ sơ" aria-label="profile">
+                <FiUser />
+              </button>
+              <button onClick={handleLogout} title="Đăng xuất" aria-label="logout">
+                <FiLogOut />
               </button>
             </div>
           </div>
@@ -202,8 +206,8 @@ const ChatPage = () => {
         {/* Main Chat Area */}
         <div className="main-content">
           {showSidebar && (
-            <button className="toggle-sidebar" onClick={() => setShowSidebar(false)}>
-              ☰
+            <button className="toggle-sidebar" onClick={() => setShowSidebar(false)} aria-label="hide sidebar">
+              <FiMenu />
             </button>
           )}
 
