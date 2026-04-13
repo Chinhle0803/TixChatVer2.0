@@ -12,6 +12,7 @@ class S3Service {
     })
     this.bucketName = config.s3BucketName
     this.avatarFolder = config.s3AvatarFolder
+    this.messageFolder = config.s3MessageFolder
   }
 
   /**
@@ -100,6 +101,34 @@ class S3Service {
     }
   }
 
+  async uploadMessageAttachment({ conversationId, senderId, fileBuffer, fileName, mimeType }) {
+    try {
+      const safeName = String(fileName || 'attachment')
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+      const timestamp = Date.now()
+      const key = `${this.messageFolder}/${conversationId}/${senderId}/${timestamp}-${safeName}`
+
+      const command = new PutObjectCommand({
+        Bucket: this.bucketName,
+        Key: key,
+        Body: fileBuffer,
+        ContentType: mimeType || this.getContentType(fileName?.split('.').pop() || ''),
+        ACL: 'public-read',
+      })
+
+      await this.s3Client.send(command)
+
+      const url = `https://${this.bucketName}.s3.${config.awsS3Region}.amazonaws.com/${key}`
+      return {
+        key,
+        url,
+      }
+    } catch (error) {
+      throw new Error(`Failed to upload message attachment to S3: ${error.message}`)
+    }
+  }
+
   /**
    * Get content type based on file extension
    * @param {string} extension - File extension
@@ -112,6 +141,21 @@ class S3Service {
       png: 'image/png',
       gif: 'image/gif',
       webp: 'image/webp',
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      mov: 'video/quicktime',
+      mkv: 'video/x-matroska',
+      pdf: 'application/pdf',
+      doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ppt: 'application/vnd.ms-powerpoint',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      txt: 'text/plain',
+      csv: 'text/csv',
+      zip: 'application/zip',
+      rar: 'application/x-rar-compressed',
     }
     return mimeTypes[extension.toLowerCase()] || 'application/octet-stream'
   }

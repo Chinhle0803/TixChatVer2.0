@@ -54,10 +54,6 @@ export const setupSocketListeners = (socket) => {
 
   // Message events
   socket.on('message:received', async (data) => {
-    console.log('📩 Socket message:received event received:', data)
-    console.log('📩 Message object:', data.message)
-    console.log('📩 Message ID:', data.message?._id || data.message?.messageId)
-
     const message = data?.message
     const messageConvId = normalizeId(message?.conversationId)
     if (!messageConvId) return
@@ -77,17 +73,10 @@ export const setupSocketListeners = (socket) => {
     const senderId = normalizeId(message?.senderId)
     const currentConvId = normalizeId(currentConversation?._id || currentConversation?.conversationId)
     
-    console.log('🔍 Checking conversation match:', {
-      messageConvId,
-      currentConvId,
-      match: messageConvId === currentConvId,
-    })
-
     const isCurrentConversation = messageConvId === currentConvId
     const isOwnMessage = senderId && senderId === currentUserId
 
     if (isCurrentConversation) {
-      console.log('✅ Adding message to current conversation')
       useChatStore.getState().addMessage(message)
       if (!isOwnMessage) {
         clearConversationUnread(messageConvId)

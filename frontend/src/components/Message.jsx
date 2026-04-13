@@ -39,6 +39,23 @@ const getReplyPreview = (replyTo, lookup = {}) => {
   return 'Tin nhắn gốc'
 }
 
+const getPrimaryAttachment = (message) => {
+  const attachments = Array.isArray(message?.attachments) ? message.attachments : []
+  return attachments[0] || null
+}
+
+const resolveAttachmentType = (message, attachment) => {
+  const rawType = message?.type || attachment?.type || ''
+  if (rawType === 'image' || rawType === 'video' || rawType === 'file') {
+    return rawType
+  }
+
+  const mimeType = String(attachment?.mimeType || '')
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('video/')) return 'video'
+  return 'file'
+}
+
 const Message = ({
   message,
   currentUserId,
@@ -64,6 +81,8 @@ const Message = ({
   const reactionEntries = Object.entries(reactions).filter(([, userIds]) => Array.isArray(userIds) && userIds.length > 0)
   const replyPreview = getReplyPreview(message.replyTo, replyPreviewMap)
   const messageText = typeof message.content === 'string' ? message.content : ''
+  const primaryAttachment = getPrimaryAttachment(message)
+  const attachmentType = resolveAttachmentType(message, primaryAttachment)
 
   const hasReacted = (userIds = []) =>
     userIds.some((id) => normalizeId(id) === normalizedCurrentUserId)
@@ -83,7 +102,37 @@ const Message = ({
           </div>
         )}
 
-        <p className="message-text">{messageText}</p>
+        {primaryAttachment && attachmentType === 'image' && (
+          <a href={primaryAttachment.url} target="_blank" rel="noreferrer" className="message-attachment-link">
+            <img
+              src={primaryAttachment.url}
+              alt={primaryAttachment.name || 'image attachment'}
+              className="message-attachment-image"
+              loading="lazy"
+            />
+          </a>
+        )}
+
+        {primaryAttachment && attachmentType === 'video' && (
+          <video className="message-attachment-video" controls preload="metadata">
+            <source src={primaryAttachment.url} type={primaryAttachment.mimeType || 'video/mp4'} />
+            Trình duyệt của bạn không hỗ trợ video.
+          </video>
+        )}
+
+        {primaryAttachment && attachmentType === 'file' && (
+          <a
+            href={primaryAttachment.url}
+            target="_blank"
+            rel="noreferrer"
+            className="message-attachment-file"
+          >
+            <strong>{primaryAttachment.name || 'Tệp đính kèm'}</strong>
+            <span>Tải xuống</span>
+          </a>
+        )}
+
+        {messageText && <p className="message-text">{messageText}</p>}
 
         {reactionEntries.length > 0 && (
           <div className="message-reactions">
@@ -164,4 +213,27 @@ const Message = ({
   )
 }
 
-export default Message
+const areEqual = (prevProps, nextProps) => {
+  const prevMessage = prevProps.message || {}
+  const nextMessage = nextProps.message || {}
+
+  const prevId = normalizeId(prevMessage._id || prevMessage.messageId)
+  const nextId = normalizeId(nextMessage._id || nextMessage.messageId)
+  if (prevId !== nextId) return false
+
+  return (
+    prevProps.currentUserId === nextProps.currentUserId &&
+    prevProps.isGroup === nextProps.isGroup &&
+    prevProps.senderInfo === nextProps.senderInfo &&
+    prevMessage.content === nextMessage.content &&
+    prevMessage.status === nextMessage.status &&
+    prevMessage.isEdited === nextMessage.isEdited &&
+    prevMessage.editedAt === nextMessage.editedAt &&
+    prevMessage.replyTo === nextMessage.replyTo &&
+    prevMessage.reactions === nextMessage.reactions &&
+    prevMessage.seenBy === nextMessage.seenBy &&
+    prevMessage.attachments === nextMessage.attachments
+  )
+}
+
+export default React.memo(Message, areEqual)

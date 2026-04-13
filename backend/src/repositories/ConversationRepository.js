@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand, UpdateCommand, QueryCommand, ScanCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
+import { GetCommand, PutCommand, UpdateCommand, QueryCommand, ScanCommand, DeleteCommand, BatchGetCommand } from '@aws-sdk/lib-dynamodb'
 import { docClient } from '../db/dynamodb.js'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -48,6 +48,56 @@ class ConversationRepository {
       return result.Item || null
     } catch (error) {
       throw new Error(`Failed to find conversation: ${error.message}`)
+    }
+  }
+
+  /**
+   * Get conversations by ids using batch operations (max 100 keys/request)
+   */
+  async findByIds(conversationIds = []) {
+    try {
+      const uniqueIds = [...new Set((conversationIds || []).filter(Boolean))]
+      if (uniqueIds.length === 0) return []
+
+      const chunks = []
+      for (let i = 0; i < uniqueIds.length; i += 100) {
+        chunks.push(uniqueIds.slice(i, i + 100))
+      }
+
+      const allItems = []
+
+      for (const chunk of chunks) {
+        const response = await docClient.send(new BatchGetCommand({
+          RequestItems: {
+            [TABLE_NAME]: {
+              Keys: chunk.map((conversationId) => ({ conversationId })),
+            },
+          },
+        }))
+
+        allItems.push(...(response?.Responses?.[TABLE_NAME] || []))
+
+        let unprocessedKeys = response?.UnprocessedKeys?.[TABLE_NAME]?.Keys || []
+        let retryCount = 0
+
+        while (unprocessedKeys.length > 0 && retryCount < 3) {
+          const retryResponse = await docClient.send(new BatchGetCommand({
+            RequestItems: {
+              [TABLE_NAME]: {
+                Keys: unprocessedKeys,
+              },
+            },
+          }))
+
+          allItems.push(...(retryResponse?.Responses?.[TABLE_NAME] || []))
+          unprocessedKeys = retryResponse?.UnprocessedKeys?.[TABLE_NAME]?.Keys || []
+          retryCount += 1
+        }
+      }
+
+      return allItems
+    } catch (error) {
+      throw new Error(`Failed to batch find conversations: ${error.message}`)
     }
   }
 

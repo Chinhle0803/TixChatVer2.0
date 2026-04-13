@@ -2,8 +2,29 @@ import messageService from '../services/MessageService.js'
 import conversationService from '../services/ConversationService.js'
 import { sendMessageValidation } from '../utils/validation.js'
 import { getIO } from '../utils/ioInstance.js'
+import S3Service from '../services/S3Service.js'
+
+const getMessageAttachmentType = (mimeType = '') => {
+  if (mimeType.startsWith('image/')) return 'image'
+  if (mimeType.startsWith('video/')) return 'video'
+  return 'file'
+}
 
 export class MessageController {
+  async broadcastMessageToParticipants(conversationId, message) {
+    const io = getIO()
+    if (!io) return
+
+    const conversation = await conversationService.getConversationById(conversationId)
+    const participants = Array.isArray(conversation?.participants)
+      ? conversation.participants
+      : []
+
+    participants.forEach((participantId) => {
+      io.to(`user:${participantId}`).emit('message:received', { message })
+    })
+  }
+
   async getUnreadCounts(req, res, next) {
     try {
       const unreadByConversation = await messageService.getUnreadCountsForUser(req.userId)
@@ -24,27 +45,70 @@ export class MessageController {
         value.conversationId,
         req.userId,
         value.content,
-        value.replyTo
+        value.replyTo,
+        {
+          clientMessageId: value.clientMessageId,
+        }
       )
 
-      // Broadcast to each participant personal room so recipients can
-      // receive the message even when they have not joined the
-      // `conversation:{id}` room yet.
-      const io = getIO()
-      if (io) {
-        const conversationId = value.conversationId
-        const conversation = await conversationService.getConversationById(conversationId)
-        const participants = Array.isArray(conversation?.participants)
-          ? conversation.participants
-          : []
-
-        participants.forEach((participantId) => {
-          io.to(`user:${participantId}`).emit('message:received', { message })
-        })
-      }
+      await this.broadcastMessageToParticipants(value.conversationId, message)
 
       res.status(201).json({
         message: 'Message sent successfully',
+        data: message,
+      })
+    } catch (err) {
+      res.status(400).json({ error: err.message })
+    }
+  }
+
+  async sendAttachmentMessage(req, res, next) {
+    try {
+  const { conversationId, content = '', replyTo = null, clientMessageId = null } = req.body
+
+      if (!conversationId) {
+        return res.status(400).json({ error: 'Conversation ID is required' })
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'Attachment file is required' })
+      }
+
+      const attachmentType = getMessageAttachmentType(req.file.mimetype)
+      const uploadResult = await S3Service.uploadMessageAttachment({
+        conversationId,
+        senderId: req.userId,
+        fileBuffer: req.file.buffer,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+      })
+
+      const attachments = [
+        {
+          type: attachmentType,
+          url: uploadResult.url,
+          size: req.file.size,
+          name: req.file.originalname,
+          mimeType: req.file.mimetype,
+        },
+      ]
+
+      const message = await messageService.sendMessage(
+        conversationId,
+        req.userId,
+        content,
+        replyTo,
+        {
+          type: attachmentType,
+          attachments,
+          clientMessageId,
+        }
+      )
+
+      await this.broadcastMessageToParticipants(conversationId, message)
+
+      res.status(201).json({
+        message: 'Attachment message sent successfully',
         data: message,
       })
     } catch (err) {

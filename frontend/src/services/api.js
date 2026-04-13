@@ -110,13 +110,38 @@ export const conversationService = {
 }
 
 export const messageService = {
-  sendMessage: (conversationId, content, replyTo = null) => {
+  sendMessage: (conversationId, content, replyTo = null, options = {}) => {
     const payload = { conversationId, content }
     if (replyTo) {
       payload.replyTo = replyTo
     }
-    console.log('📤 Sending message via API:', payload)
+    if (options?.clientMessageId) {
+      payload.clientMessageId = options.clientMessageId
+    }
     return apiClient.post('/messages', payload)
+  },
+  sendAttachment: (conversationId, file, content = '', replyTo = null, options = {}) => {
+    const formData = new FormData()
+    formData.append('conversationId', conversationId)
+    formData.append('attachment', file)
+
+    if (typeof content === 'string') {
+      formData.append('content', content)
+    }
+
+    if (replyTo) {
+      formData.append('replyTo', replyTo)
+    }
+
+    if (options?.clientMessageId) {
+      formData.append('clientMessageId', options.clientMessageId)
+    }
+
+    return apiClient.post('/messages/attachment', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })
   },
   getMessages: (conversationId, limit = 50, lastEvaluatedKey = null) => {
     const serializedKey =

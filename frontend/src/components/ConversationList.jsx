@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import '../styles/ConversationList.css'
 import { userService } from '../services/api'
 import useAuthStore from '../store/authStore'
@@ -96,8 +96,37 @@ const ConversationList = ({
   const [searchQuery, setSearchQuery] = useState('')
   const [profileMap, setProfileMap] = useState({})
   const [nowTs, setNowTs] = useState(Date.now())
+  const loadingProfileIdsRef = useRef(new Set())
   const currentUser = useAuthStore((state) => state.user)
   const currentUserId = normalizeId(currentUser?._id || currentUser?.userId)
+
+  const onlineUserSet = useMemo(() => {
+    const set = new Set()
+    ;(onlineUsers || []).forEach((user) => {
+      set.add(normalizeId(user?._id || user?.userId))
+    })
+    return set
+  }, [onlineUsers])
+
+  const missingProfileIds = useMemo(() => {
+    const missingUserIds = new Set()
+
+    conversations.forEach((conv) => {
+      ;(conv?.participants || []).forEach((participant) => {
+        const participantId = getParticipantId(participant)
+        if (!participantId || participantId === currentUserId || profileMap[participantId]) {
+          return
+        }
+
+        const displayName = getParticipantName(participant)
+        if (!displayName && !loadingProfileIdsRef.current.has(participantId)) {
+          missingUserIds.add(participantId)
+        }
+      })
+    })
+
+    return Array.from(missingUserIds)
+  }, [conversations, currentUserId, profileMap])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -111,28 +140,14 @@ const ConversationList = ({
     let isCancelled = false
 
     const fetchMissingProfiles = async () => {
-      const missingUserIds = new Set()
-
-      conversations.forEach((conv) => {
-        ;(conv?.participants || []).forEach((participant) => {
-          const participantId = getParticipantId(participant)
-          if (!participantId || participantId === currentUserId || profileMap[participantId]) {
-            return
-          }
-
-          const displayName = getParticipantName(participant)
-          if (!displayName) {
-            missingUserIds.add(participantId)
-          }
-        })
-      })
-
-      if (missingUserIds.size === 0) {
+      if (missingProfileIds.length === 0) {
         return
       }
 
+      missingProfileIds.forEach((userId) => loadingProfileIdsRef.current.add(userId))
+
       const responses = await Promise.allSettled(
-        Array.from(missingUserIds).map(async (userId) => {
+        missingProfileIds.map(async (userId) => {
           const response = await userService.getProfile(userId)
           return { userId, user: response?.data?.user || null }
         })
@@ -147,6 +162,8 @@ const ConversationList = ({
         }
       })
 
+      missingProfileIds.forEach((userId) => loadingProfileIdsRef.current.delete(userId))
+
       if (Object.keys(nextProfiles).length > 0) {
         setProfileMap((prev) => ({ ...prev, ...nextProfiles }))
       }
@@ -159,7 +176,7 @@ const ConversationList = ({
     return () => {
       isCancelled = true
     }
-  }, [conversations, currentUserId, profileMap])
+  }, [missingProfileIds])
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
@@ -235,7 +252,7 @@ const ConversationList = ({
   }
 
   const isUserOnline = (userId) => {
-    return onlineUsers?.some((u) => normalizeId(u?._id || u?.userId) === normalizeId(userId))
+    return onlineUserSet.has(normalizeId(userId))
   }
 
   const getUnreadCount = (conv) => {

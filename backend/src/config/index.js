@@ -40,6 +40,7 @@ export const config = {
   awsS3Region: process.env.AWS_S3_REGION || 'us-east-1',
   s3BucketName: process.env.S3_BUCKET_NAME || 'tixchat-avatars',
   s3AvatarFolder: process.env.S3_AVATAR_FOLDER || 'avatars',
+  s3MessageFolder: process.env.S3_MESSAGE_FOLDER || 'messages',
 }
 
 export default config

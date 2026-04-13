@@ -23,6 +23,7 @@ class MessageRepository {
       seenBy: messageData.seenBy || [],
       deliveredTo: messageData.deliveredTo || [],
       replyTo: messageData.replyTo || null,
+  clientMessageId: messageData.clientMessageId || null,
       emoji: messageData.emoji || [],
       isEdited: false,
       editedAt: null,

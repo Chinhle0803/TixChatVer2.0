@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import messageController from '../controllers/MessageController.js'
 import { authenticateToken } from '../middleware/auth.js'
+import { uploadMessageAttachment } from '../middleware/upload.js'
 
 const router = Router()
 
@@ -10,6 +11,11 @@ router.post('/', (req, res, next) => {
   console.log('📨 POST /messages endpoint hit')
   messageController.sendMessage(req, res, next)
 })
+router.post(
+  '/attachment',
+  uploadMessageAttachment.single('attachment'),
+  messageController.sendAttachmentMessage.bind(messageController)
+)
 router.get('/unread/counts', messageController.getUnreadCounts.bind(messageController))
 router.get('/:conversationId', messageController.getConversationMessages.bind(messageController))
 router.put('/:conversationId/:messageId', messageController.editMessage.bind(messageController))

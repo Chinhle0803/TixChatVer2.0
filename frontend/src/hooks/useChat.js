@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { messageService, conversationService } from '../services/api'
 import {
   joinConversation,
@@ -19,12 +19,23 @@ const normalizeId = (value) => {
   return String(value)
 }
 
+const createClientMessageId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+const createTempMessageId = () => `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+
 export const useChat = () => {
   const [loading, setLoading] = useState(false)
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false)
   const [messageCursor, setMessageCursor] = useState(null)
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
   const [error, setError] = useState(null)
+  const inFlightSendKeysRef = useRef(new Set())
   const conversations = useChatStore((state) => state.conversations)
   const currentConversation = useChatStore((state) => state.currentConversation)
   const messages = useChatStore((state) => state.messages)
@@ -42,44 +53,29 @@ export const useChat = () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await conversationService.getConversations()
+      const [response, unreadResponse] = await Promise.all([
+        conversationService.getConversations(),
+        messageService.getUnreadCounts(),
+      ])
+
       const conversationsList = response.data.conversations || []
-  const unreadResponse = await messageService.getUnreadCounts()
-  const unreadByConversation = unreadResponse?.data?.unreadByConversation || {}
-  setUnreadCounts(unreadByConversation)
+      const unreadByConversation = unreadResponse?.data?.unreadByConversation || {}
+      setUnreadCounts(unreadByConversation)
 
-      const enrichedResponses = await Promise.allSettled(
-        conversationsList.map(async (conversation) => {
-          const conversationId = conversation._id || conversation.conversationId
-          if (!conversationId) return conversation
-
-          const messagesResponse = await messageService.getMessages(conversationId, 1)
-          const latestMessage = messagesResponse?.data?.messages?.[0] || null
-
-          if (!latestMessage) {
-            return conversation
-          }
-
-          return {
-            ...conversation,
-            latestMessage,
-            unreadCount: Number(unreadByConversation?.[conversationId] || 0),
-            lastMessageAt: latestMessage.createdAt || latestMessage.updatedAt || conversation.lastMessageAt,
-          }
-        })
-      )
-
-      const enrichedConversations = enrichedResponses.map((result, index) =>
-        result.status === 'fulfilled' ? result.value : conversationsList[index]
-      )
-
-      const normalizedConversations = enrichedConversations.map((conversation) => {
+      const normalizedConversations = conversationsList.map((conversation) => {
         const conversationId = conversation?._id || conversation?.conversationId
         if (!conversationId) return conversation
+
+        const latestMessage = conversation?.latestMessage || null
 
         return {
           ...conversation,
           unreadCount: Number(unreadByConversation?.[conversationId] || conversation?.unreadCount || 0),
+          lastMessageAt:
+            latestMessage?.createdAt ||
+            latestMessage?.updatedAt ||
+            conversation?.lastMessageAt ||
+            conversation?.updatedAt,
         }
       })
 
@@ -107,9 +103,6 @@ export const useChat = () => {
         
         const conversation = conversationResponse.data.conversation
         const messagesList = messagesResponse.data.messages || []
-        
-        console.log('📥 Loaded conversation:', conversation)
-        console.log('📥 Loaded messages:', messagesList)
         
         setCurrentConversation(conversation)
         
@@ -182,35 +175,93 @@ export const useChat = () => {
   )
 
   const sendMessage = useCallback(
-    async (content, replyTo = null) => {
+    async (content, replyTo = null, options = {}) => {
       if (!currentConversation) {
         setError('No conversation selected')
         return
       }
 
+      const trimmedContent = typeof content === 'string' ? content.trim() : ''
+      const replyKey = normalizeId(replyTo)
+  const clientMessageId = options?.clientMessageId || createClientMessageId()
+      const conversationId = currentConversation._id || currentConversation.conversationId
+      const payloadDedupeKey = `${conversationId}:${trimmedContent}:${replyKey}`
+      const idDedupeKey = clientMessageId ? `id:${clientMessageId}` : ''
+  const tempMessageId = createTempMessageId()
+
+      if (
+        inFlightSendKeysRef.current.has(payloadDedupeKey) ||
+        (idDedupeKey && inFlightSendKeysRef.current.has(idDedupeKey))
+      ) {
+        return
+      }
+
       setError(null)
+      inFlightSendKeysRef.current.add(payloadDedupeKey)
+      if (idDedupeKey) {
+        inFlightSendKeysRef.current.add(idDedupeKey)
+      }
+
+      const optimisticMessage = {
+        _id: tempMessageId,
+        messageId: tempMessageId,
+        conversationId,
+        senderId: user?._id || user?.userId,
+        content: trimmedContent,
+        replyTo: replyTo || null,
+        type: 'text',
+        attachments: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        status: 'sending',
+        clientMessageId,
+        isOptimistic: true,
+      }
+
+      addMessage(optimisticMessage)
+
+      const optimisticConversationTs = optimisticMessage.createdAt
+      const optimisticConversations = conversations
+        .map((conversation) => {
+          const currentId = conversation._id || conversation.conversationId
+          if (normalizeId(currentId) !== normalizeId(conversationId)) {
+            return conversation
+          }
+
+          return {
+            ...conversation,
+            latestMessage: optimisticMessage,
+            lastMessageAt: optimisticConversationTs,
+            updatedAt: optimisticConversationTs,
+          }
+        })
+        .sort((a, b) => {
+          const timeA = a.lastMessageAt || a.updatedAt || 0
+          const timeB = b.lastMessageAt || b.updatedAt || 0
+          return Number(timeB) - Number(timeA)
+        })
+
+      setConversations(optimisticConversations)
+
       try {
-        const conversationId = currentConversation._id || currentConversation.conversationId
-        console.log('💬 sendMessage called with:', { conversationId, content, replyTo })
-        console.log('📦 currentConversation:', currentConversation)
-        
         // Make API request to send message
         const response = await messageService.sendMessage(
           conversationId,
           content,
-          replyTo
+          replyTo,
+          { clientMessageId }
         )
         
         const message = response.data.data
-        console.log('✅ Message created via API:', message)
         
         // Ensure message has conversationId for store operations
         const enrichedMessage = {
           ...message,
           conversationId: conversationId,
           _id: message._id || message.messageId,
+          clientMessageId,
+          isOptimistic: false,
         }
-        console.log('📝 Enriched message:', enrichedMessage)
         
         // Add message to local state immediately (optimistic update)
         addMessage(enrichedMessage)
@@ -249,12 +300,162 @@ export const useChat = () => {
         
         return message
       } catch (err) {
-        console.error('❌ Error sending message:', err)
+        removeMessage(tempMessageId)
+
         setError(err.response?.data?.error || 'Failed to send message')
         throw err
+      } finally {
+        inFlightSendKeysRef.current.delete(payloadDedupeKey)
+        if (idDedupeKey) {
+          inFlightSendKeysRef.current.delete(idDedupeKey)
+        }
       }
     },
-    [currentConversation, addMessage, conversations, setConversations]
+    [currentConversation, addMessage, conversations, removeMessage, setConversations, user]
+  )
+
+  const sendAttachmentMessage = useCallback(
+    async (file, content = '', replyTo = null, options = {}) => {
+      if (!currentConversation) {
+        setError('No conversation selected')
+        return
+      }
+
+      if (!file) {
+        setError('No attachment selected')
+        return
+      }
+
+      setError(null)
+      const conversationId = currentConversation._id || currentConversation.conversationId
+  const clientMessageId = options?.clientMessageId || createClientMessageId()
+      const payloadDedupeKey = `${conversationId}:attachment:${file?.name || ''}:${file?.size || 0}:${file?.lastModified || 0}:${normalizeId(replyTo)}:${(content || '').trim()}`
+      const idDedupeKey = clientMessageId ? `id:${clientMessageId}` : ''
+  const tempMessageId = createTempMessageId()
+
+      if (
+        inFlightSendKeysRef.current.has(payloadDedupeKey) ||
+        (idDedupeKey && inFlightSendKeysRef.current.has(idDedupeKey))
+      ) {
+        return
+      }
+
+      inFlightSendKeysRef.current.add(payloadDedupeKey)
+      if (idDedupeKey) {
+        inFlightSendKeysRef.current.add(idDedupeKey)
+      }
+
+      const optimisticMessage = {
+        _id: tempMessageId,
+        messageId: tempMessageId,
+        conversationId,
+        senderId: user?._id || user?.userId,
+        content: typeof content === 'string' ? content.trim() : '',
+        replyTo: replyTo || null,
+        type: 'file',
+        attachments: [
+          {
+            name: file?.name || 'attachment',
+            size: file?.size || 0,
+            mimeType: file?.type || 'application/octet-stream',
+          },
+        ],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        status: 'sending',
+        clientMessageId,
+        isOptimistic: true,
+      }
+
+      addMessage(optimisticMessage)
+
+      const optimisticConversationTs = optimisticMessage.createdAt
+      const optimisticConversations = conversations
+        .map((conversation) => {
+          const currentId = conversation._id || conversation.conversationId
+          if (normalizeId(currentId) !== normalizeId(conversationId)) {
+            return conversation
+          }
+
+          return {
+            ...conversation,
+            latestMessage: optimisticMessage,
+            lastMessageAt: optimisticConversationTs,
+            updatedAt: optimisticConversationTs,
+          }
+        })
+        .sort((a, b) => {
+          const timeA = a.lastMessageAt || a.updatedAt || 0
+          const timeB = b.lastMessageAt || b.updatedAt || 0
+          return Number(timeB) - Number(timeA)
+        })
+
+      setConversations(optimisticConversations)
+
+      try {
+        const response = await messageService.sendAttachment(
+          conversationId,
+          file,
+          content,
+          replyTo,
+          { clientMessageId }
+        )
+
+        const message = response.data.data
+        const enrichedMessage = {
+          ...message,
+          conversationId,
+          _id: message._id || message.messageId,
+          clientMessageId,
+          isOptimistic: false,
+        }
+
+        addMessage(enrichedMessage)
+
+        const nextConversations = conversations
+          .map((conversation) => {
+            const currentId = conversation._id || conversation.conversationId
+            if (normalizeId(currentId) !== normalizeId(conversationId)) {
+              return conversation
+            }
+
+            return {
+              ...conversation,
+              latestMessage: enrichedMessage,
+              lastMessageAt:
+                enrichedMessage.createdAt || enrichedMessage.updatedAt || conversation.lastMessageAt,
+              updatedAt: Date.now(),
+            }
+          })
+          .sort((a, b) => {
+            const timeA = a.lastMessageAt || a.updatedAt || 0
+            const timeB = b.lastMessageAt || b.updatedAt || 0
+            return Number(timeB) - Number(timeA)
+          })
+
+        setConversations(nextConversations)
+
+        try {
+          await ensureSocketConnected()
+          await joinConversation(conversationId)
+        } catch (err) {
+          console.warn('⚠️ Socket sync failed:', err.message)
+        }
+
+        return message
+      } catch (err) {
+        removeMessage(tempMessageId)
+
+        setError(err.response?.data?.error || 'Failed to send attachment')
+        throw err
+      } finally {
+        inFlightSendKeysRef.current.delete(payloadDedupeKey)
+        if (idDedupeKey) {
+          inFlightSendKeysRef.current.delete(idDedupeKey)
+        }
+      }
+    },
+    [currentConversation, addMessage, conversations, removeMessage, setConversations, user]
   )
 
   const loadMoreMessages = useCallback(
@@ -480,6 +681,7 @@ export const useChat = () => {
   deleteConversation,
     createConversation,
     sendMessage,
+  sendAttachmentMessage,
     loadMoreMessages,
     editMessage,
     deleteMessage,

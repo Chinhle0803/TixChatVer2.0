@@ -75,6 +75,50 @@
   word-break: break-word;
 }
 
+.message-attachment-link {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.message-attachment-image {
+  display: block;
+  max-width: 280px;
+  max-height: 280px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.message-attachment-video {
+  width: 280px;
+  max-width: 100%;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background-color: #000;
+}
+
+.message-attachment-file {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.45);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.message.other .message-attachment-file {
+  border-color: rgba(15, 23, 42, 0.25);
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.message-attachment-file span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
 .message-edit-area {
   display: flex;
   flex-direction: column;

@@ -4,8 +4,71 @@ import ParticipantRepository from '../repositories/ParticipantRepository.js'
 import { messageEvents } from '../events/EventBus.js'
 import { MESSAGE_EVENTS } from '../events/EventTypes.js'
 
+const DUPLICATE_DETECTION_WINDOW_MS = 10 * 60 * 1000
+
 export class MessageService {
-  async sendMessage(conversationId, senderId, content, replyTo = null) {
+  async mapWithConcurrency(items = [], worker, concurrency = 8) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return []
+    }
+
+    const safeConcurrency = Math.max(1, Math.min(concurrency, items.length))
+    const results = new Array(items.length)
+    let index = 0
+
+    const runners = Array.from({ length: safeConcurrency }, async () => {
+      while (index < items.length) {
+        const currentIndex = index
+        index += 1
+        results[currentIndex] = await worker(items[currentIndex], currentIndex)
+      }
+    })
+
+    await Promise.all(runners)
+    return results
+  }
+
+  async findRecentDuplicateByClientMessageId(conversationId, senderId, clientMessageId) {
+    if (!clientMessageId) {
+      return null
+    }
+
+    const now = Date.now()
+    let cursor = null
+    let page = 0
+
+    while (page < 5) {
+      const result = await MessageRepository.getByConversation(conversationId, 50, cursor)
+      const messages = result?.messages || []
+
+      const duplicated = messages.find((message) => {
+        const createdAt = Number(message?.createdAt || 0)
+        const withinWindow = now - createdAt <= DUPLICATE_DETECTION_WINDOW_MS
+
+        return (
+          String(message?.senderId) === String(senderId) &&
+          String(message?.clientMessageId || '') === String(clientMessageId) &&
+          withinWindow
+        )
+      })
+
+      if (duplicated) {
+        return duplicated
+      }
+
+      const oldestCreatedAt = Number(messages?.[messages.length - 1]?.createdAt || 0)
+      if (!result?.lastEvaluatedKey || !oldestCreatedAt || now - oldestCreatedAt > DUPLICATE_DETECTION_WINDOW_MS) {
+        break
+      }
+
+      cursor = result.lastEvaluatedKey
+      page += 1
+    }
+
+    return null
+  }
+
+  async sendMessage(conversationId, senderId, content, replyTo = null, options = {}) {
     // Verify conversation exists
     const conversation = await ConversationRepository.findById(conversationId)
     if (!conversation) {
@@ -47,12 +110,41 @@ export class MessageService {
       }
     }
 
+    const clientMessageId = options?.clientMessageId || null
+
+    // Avoid duplicate sends from rapid submits/retries using idempotency key
+    const duplicatedMessage = await this.findRecentDuplicateByClientMessageId(
+      conversationId,
+      senderId,
+      clientMessageId
+    )
+
+    if (duplicatedMessage) {
+      return duplicatedMessage
+    }
+
     // Create message
+    const normalizedContent = typeof content === 'string' ? content.trim() : ''
+    const attachments = Array.isArray(options.attachments) ? options.attachments : []
+    const hasText = Boolean(normalizedContent)
+    const hasAttachments = attachments.length > 0
+
+    if (!hasText && !hasAttachments) {
+      throw new Error('Message content or attachment is required')
+    }
+
+    const inferredType = hasAttachments
+      ? attachments[0]?.type || 'file'
+      : 'text'
+
     const message = await MessageRepository.create({
       conversationId,
       senderId,
-      content,
+      content: normalizedContent,
       replyTo,
+      attachments,
+      clientMessageId,
+      type: options.type || inferredType,
     })
 
     // Update conversation
@@ -125,14 +217,16 @@ export class MessageService {
     const result = await MessageRepository.getByConversation(conversationId, 10000)
     const messages = result.messages || []
 
-    // Mark each as seen
+    // Mark each as seen (concurrently with a safe cap)
     let latestMessage = null
+    const messagesToUpdate = []
+
     for (const message of messages) {
       const seenBy = message.seenBy || []
       if (!seenBy.includes(userId)) {
-        seenBy.push(userId)
-        await MessageRepository.update(conversationId, message.messageId, {
-          seenBy,
+        messagesToUpdate.push({
+          messageId: message.messageId,
+          seenBy: [...seenBy, userId],
         })
       }
 
@@ -140,6 +234,14 @@ export class MessageService {
         latestMessage = message
       }
     }
+
+    await this.mapWithConcurrency(
+      messagesToUpdate,
+      async ({ messageId, seenBy }) => {
+        await MessageRepository.update(conversationId, messageId, { seenBy })
+      },
+      10
+    )
 
     await ParticipantRepository.updateReadState(
       conversationId,
@@ -181,14 +283,22 @@ export class MessageService {
   async getUnreadCountsForUser(userId) {
     const participants = await ParticipantRepository.findByUserId(userId, 1000)
     const activeParticipants = (participants || []).filter((item) => !item?.leftAt)
+    const unreadEntries = await this.mapWithConcurrency(
+      activeParticipants,
+      async (participant) => {
+        const conversationId = participant?.conversationId
+        if (!conversationId) return null
+
+        const unreadCount = await this.getUnreadCount(conversationId, userId)
+        return [conversationId, unreadCount]
+      },
+      6
+    )
+
     const unreadByConversation = {}
-
-    for (const participant of activeParticipants) {
-      const conversationId = participant?.conversationId
-      if (!conversationId) continue
-
-      const unreadCount = await this.getUnreadCount(conversationId, userId)
-      unreadByConversation[conversationId] = unreadCount
+    for (const entry of unreadEntries) {
+      if (!entry) continue
+      unreadByConversation[entry[0]] = entry[1]
     }
 
     return unreadByConversation

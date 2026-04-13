@@ -59,6 +59,7 @@ const ChatPage = () => {
     createConversation,
   deleteConversation,
     sendMessage,
+    sendAttachmentMessage,
     loadMoreMessages,
     editMessage,
     deleteMessage,
@@ -108,11 +109,19 @@ const ChatPage = () => {
     setShowSidebar(false)
   }
 
-  const handleSendMessage = async (content, replyTo) => {
+  const handleSendMessage = async (content, replyTo, options) => {
     try {
-      await sendMessage(content, replyTo)
+      await sendMessage(content, replyTo, options)
     } catch (err) {
       console.error('Error sending message:', err)
+    }
+  }
+
+  const handleSendAttachment = async (file, content, replyTo, options) => {
+    try {
+      await sendAttachmentMessage(file, content, replyTo, options)
+    } catch (err) {
+      console.error('Error sending attachment message:', err)
     }
   }
 
@@ -273,6 +282,7 @@ const ChatPage = () => {
               messages={messages}
               currentUserId={user?._id || user?.userId}
               onSendMessage={handleSendMessage}
+              onSendAttachment={handleSendAttachment}
               onDeleteMessage={handleDeleteMessage}
               onEditMessage={handleEditMessage}
               onReactMessage={handleReactToMessage}

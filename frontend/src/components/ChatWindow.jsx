@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import '../styles/ChatWindow.css'
-import { FiPhone, FiVideo, FiInfo, FiTrash2 } from 'react-icons/fi'
+import { FiPhone, FiVideo, FiInfo, FiTrash2, FiPaperclip, FiX } from 'react-icons/fi'
 import Message from './Message'
 import { userService } from '../services/api'
+
+const SEND_COOLDOWN_MS = 350
+
+const formatFileSize = (size = 0) => {
+  if (!Number.isFinite(size) || size <= 0) return '0 B'
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`
+  return `${(size / (1024 * 1024 * 1024)).toFixed(1)} GB`
+}
 
 const normalizeId = (value) => {
   if (!value) return ''
@@ -58,6 +68,7 @@ const ChatWindow = ({
   messages,
   currentUserId,
   onSendMessage,
+  onSendAttachment,
   onDeleteMessage,
   onEditMessage,
   onReactMessage,
@@ -73,14 +84,29 @@ const ChatWindow = ({
   const [messageInput, setMessageInput] = useState('')
   const [replyingTo, setReplyingTo] = useState(null)
   const [editingMessage, setEditingMessage] = useState(null)
+  const [selectedAttachment, setSelectedAttachment] = useState(null)
   const [participantProfiles, setParticipantProfiles] = useState({})
+  const loadingProfileIdsRef = useRef(new Set())
   const messagesContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
   const inputRef = useRef(null)
+  const attachmentInputRef = useRef(null)
   const prevConversationIdRef = useRef('')
   const newestMessageIdRef = useRef('')
   const typingTimeoutRef = useRef(null)
   const isTypingRef = useRef(false)
+  const sendCooldownUntilRef = useRef(0)
+  const sendCooldownTimerRef = useRef(null)
+  const initialScrolledConversationRef = useRef('')
+  const [isSending, setIsSending] = useState(false)
+
+  const createClientMessageId = () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID()
+    }
+
+    return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  }
 
   const replyPreviewMap = useMemo(() => {
     const previews = {}
@@ -96,6 +122,39 @@ const ChatWindow = ({
 
     return previews
   }, [messages])
+
+  const reversedMessages = useMemo(() => [...(messages || [])].reverse(), [messages])
+
+  const senderById = useMemo(() => {
+    const map = new Map()
+    ;(conversation?.participants || []).forEach((participant) => {
+      const id = getParticipantId(participant)
+      if (id) {
+        map.set(id, participant)
+      }
+    })
+    return map
+  }, [conversation])
+
+  const missingParticipantProfileIds = useMemo(() => {
+    if (!conversation) return []
+
+    const missing = new Set()
+    ;(conversation.participants || []).forEach((participant) => {
+      const participantId = getParticipantId(participant)
+      const participantName = getParticipantName(participant, participantProfiles)
+
+      if (!participantId || participantId === normalizeId(currentUserId) || participantName) {
+        return
+      }
+
+      if (!loadingProfileIdsRef.current.has(participantId)) {
+        missing.add(participantId)
+      }
+    })
+
+    return Array.from(missing)
+  }, [conversation, currentUserId, participantProfiles])
 
   const scrollToBottom = (behavior = 'smooth') => {
     if (messagesContainerRef.current) {
@@ -131,12 +190,29 @@ const ChatWindow = ({
     setEditingMessage(null)
     setReplyingTo(null)
     setMessageInput('')
+    setSelectedAttachment(null)
 
     requestAnimationFrame(() => {
       scrollToBottom('auto')
       inputRef.current?.focus()
     })
+
+    initialScrolledConversationRef.current = ''
   }, [conversation])
+
+  useEffect(() => {
+    const conversationId = normalizeId(conversation?._id || conversation?.conversationId)
+    if (!conversationId || loading) return
+
+    if (initialScrolledConversationRef.current === conversationId) return
+
+    const rafId = requestAnimationFrame(() => {
+      scrollToBottom('auto')
+      initialScrolledConversationRef.current = conversationId
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [conversation, loading, messages.length])
 
   useEffect(() => {
     if (!conversation || loading || loadingMoreMessages) return
@@ -154,24 +230,12 @@ const ChatWindow = ({
     let isCancelled = false
 
     const fetchMissingProfiles = async () => {
-      const participants = conversation.participants || []
-      const missingIds = participants
-        .map((participant) => {
-          const participantId = getParticipantId(participant)
-          const participantName = getParticipantName(participant, participantProfiles)
+      if (missingParticipantProfileIds.length === 0) return
 
-          if (!participantId || participantId === normalizeId(currentUserId) || participantName) {
-            return ''
-          }
-
-          return participantId
-        })
-        .filter(Boolean)
-
-      if (missingIds.length === 0) return
+      missingParticipantProfileIds.forEach((userId) => loadingProfileIdsRef.current.add(userId))
 
       const results = await Promise.allSettled(
-        missingIds.map(async (userId) => {
+        missingParticipantProfileIds.map(async (userId) => {
           const response = await userService.getProfile(userId)
           return { userId, user: response?.data?.user || null }
         })
@@ -186,6 +250,8 @@ const ChatWindow = ({
         }
       })
 
+      missingParticipantProfileIds.forEach((userId) => loadingProfileIdsRef.current.delete(userId))
+
       if (Object.keys(nextProfiles).length > 0) {
         setParticipantProfiles((prev) => ({ ...prev, ...nextProfiles }))
       }
@@ -198,7 +264,7 @@ const ChatWindow = ({
     return () => {
       isCancelled = true
     }
-  }, [conversation, currentUserId, participantProfiles])
+  }, [conversation, missingParticipantProfileIds])
 
   useEffect(() => {
     return () => {
@@ -209,6 +275,10 @@ const ChatWindow = ({
       if (isTypingRef.current) {
         onTypingStop?.()
         isTypingRef.current = false
+      }
+
+      if (sendCooldownTimerRef.current) {
+        clearTimeout(sendCooldownTimerRef.current)
       }
     }
   }, [onTypingStop])
@@ -249,24 +319,73 @@ const ChatWindow = ({
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
-    if (!messageInput.trim()) return
+    const trimmedMessage = messageInput.trim()
+    if ((!trimmedMessage && !selectedAttachment) || Date.now() < sendCooldownUntilRef.current) return
 
     try {
+      sendCooldownUntilRef.current = Date.now() + SEND_COOLDOWN_MS
+      setIsSending(true)
+
+      if (sendCooldownTimerRef.current) {
+        clearTimeout(sendCooldownTimerRef.current)
+      }
+
+      sendCooldownTimerRef.current = setTimeout(() => {
+        setIsSending(false)
+      }, SEND_COOLDOWN_MS)
+
       stopTypingNow()
+      const clientMessageId = createClientMessageId()
 
       if (editingMessage) {
-        await onEditMessage?.(editingMessage._id || editingMessage.messageId, messageInput)
+        await onEditMessage?.(editingMessage._id || editingMessage.messageId, trimmedMessage)
         setEditingMessage(null)
+      } else if (selectedAttachment) {
+        await onSendAttachment?.(
+          selectedAttachment,
+          trimmedMessage,
+          replyingTo?._id || replyingTo?.messageId,
+          { clientMessageId }
+        )
       } else {
-        await onSendMessage(messageInput, replyingTo?._id || replyingTo?.messageId)
+        await onSendMessage(
+          trimmedMessage,
+          replyingTo?._id || replyingTo?.messageId,
+          { clientMessageId }
+        )
       }
 
       setMessageInput('')
       setReplyingTo(null)
+      setSelectedAttachment(null)
+      if (attachmentInputRef.current) {
+        attachmentInputRef.current.value = ''
+      }
       inputRef.current?.focus()
     } catch (err) {
       console.error('Error sending message:', err)
     }
+  }
+
+  const handleSelectAttachment = (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setEditingMessage(null)
+    setSelectedAttachment(file)
+    inputRef.current?.focus()
+  }
+
+  const clearAttachment = () => {
+    setSelectedAttachment(null)
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = ''
+    }
+  }
+
+  const triggerAttachmentPicker = () => {
+    if (editingMessage) return
+    attachmentInputRef.current?.click()
   }
 
   const handleStartEditMessage = (message) => {
@@ -275,6 +394,7 @@ const ChatWindow = ({
     const currentContent = typeof message.content === 'string' ? message.content : ''
     setEditingMessage(message)
     setReplyingTo(null)
+    clearAttachment()
     setMessageInput(currentContent)
 
     requestAnimationFrame(() => {
@@ -378,7 +498,7 @@ const ChatWindow = ({
             ) : messages.length === 0 ? (
               <div className="empty-messages">Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!</div>
             ) : (
-              [...messages].reverse().map((message) => (
+              reversedMessages.map((message) => (
                 <Message
                   key={message._id || message.messageId}
                   message={message}
@@ -386,9 +506,7 @@ const ChatWindow = ({
                   isGroup={isGroup}
                   senderInfo={
                     isGroup
-                      ? conversation.participants?.find(
-                          (p) => normalizeId(p?._id || p?.userId) === normalizeId(message.senderId || message.userId || message.sender)
-                        )
+                      ? senderById.get(normalizeId(message.senderId || message.userId || message.sender))
                       : null
                   }
                   onReply={setReplyingTo}
@@ -418,30 +536,76 @@ const ChatWindow = ({
             {editingMessage && (
               <div className="reply-preview">
                 <span>Đang chỉnh sửa tin nhắn...</span>
-                <button onClick={handleCancelEditMessage}>✕</button>
+                <button type="button" onClick={handleCancelEditMessage}>✕</button>
               </div>
             )}
 
             {replyingTo && (
               <div className="reply-preview">
                 <span>Trả lời: {replyingPreview || 'Tin nhắn gốc'}...</span>
-                <button onClick={() => setReplyingTo(null)}>✕</button>
+                <button type="button" onClick={() => setReplyingTo(null)}>✕</button>
               </div>
             )}
 
             <form onSubmit={handleSendMessage} className="chat-input-form">
               <input
+                ref={attachmentInputRef}
+                type="file"
+                className="attachment-input-hidden"
+                onChange={handleSelectAttachment}
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar"
+              />
+              <button
+                type="button"
+                className="attachment-button"
+                onClick={triggerAttachmentPicker}
+                title="Đính kèm ảnh/video/tệp"
+                aria-label="attach file"
+                disabled={Boolean(editingMessage)}
+              >
+                <FiPaperclip />
+              </button>
+              <input
                 ref={inputRef}
                 type="text"
                 value={messageInput}
                 onChange={handleInputChange}
-                placeholder={editingMessage ? 'Sửa tin nhắn...' : 'Nhập tin nhắn...'}
+                placeholder={
+                  editingMessage
+                    ? 'Sửa tin nhắn...'
+                    : selectedAttachment
+                      ? 'Thêm chú thích (không bắt buộc)...'
+                      : 'Nhập tin nhắn...'
+                }
                 className="chat-input"
+                disabled={isSending}
               />
-              <button type="submit" className="send-button" disabled={!messageInput.trim()}>
-                {editingMessage ? 'Lưu' : 'Gửi'}
+              <button
+                type="submit"
+                className="send-button"
+                disabled={isSending || (!messageInput.trim() && !selectedAttachment)}
+              >
+                {isSending ? 'Đang gửi...' : editingMessage ? 'Lưu' : 'Gửi'}
               </button>
             </form>
+
+            {selectedAttachment && (
+              <div className="attachment-preview">
+                <div className="attachment-preview-info">
+                  <strong>{selectedAttachment.name}</strong>
+                  <span>{formatFileSize(selectedAttachment.size)}</span>
+                </div>
+                <button
+                  type="button"
+                  className="attachment-preview-remove"
+                  onClick={clearAttachment}
+                  title="Bỏ tệp đính kèm"
+                  aria-label="remove attachment"
+                >
+                  <FiX />
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}

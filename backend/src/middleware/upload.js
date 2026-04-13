@@ -23,3 +23,42 @@ export const uploadAvatar = multer({
   },
   fileFilter: fileFilter,
 })
+
+const messageAttachmentFilter = (req, file, cb) => {
+  const allowedMimeTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+    'video/x-matroska',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'text/plain',
+    'text/csv',
+    'application/zip',
+    'application/x-rar-compressed',
+    'application/octet-stream',
+  ]
+
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true)
+  } else {
+    cb(new Error('Unsupported file type for message attachment'), false)
+  }
+}
+
+export const uploadMessageAttachment = multer({
+  storage,
+  limits: {
+    fileSize: config.maxFileSize,
+  },
+  fileFilter: messageAttachmentFilter,
+})

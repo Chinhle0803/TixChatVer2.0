@@ -1,9 +1,31 @@
 import ConversationRepository from '../repositories/ConversationRepository.js'
 import ParticipantRepository from '../repositories/ParticipantRepository.js'
+import MessageRepository from '../repositories/MessageRepository.js'
 import { conversationEvents } from '../events/EventBus.js'
 import { CONVERSATION_EVENTS } from '../events/EventTypes.js'
 
 export class ConversationService {
+  async mapWithConcurrency(items = [], worker, concurrency = 8) {
+    if (!Array.isArray(items) || items.length === 0) {
+      return []
+    }
+
+    const safeConcurrency = Math.max(1, Math.min(concurrency, items.length))
+    const results = new Array(items.length)
+    let index = 0
+
+    const runners = Array.from({ length: safeConcurrency }, async () => {
+      while (index < items.length) {
+        const currentIndex = index
+        index += 1
+        results[currentIndex] = await worker(items[currentIndex], currentIndex)
+      }
+    })
+
+    await Promise.all(runners)
+    return results
+  }
+
   async findDirectConversationBetweenUsers(userAId, userBId) {
     const userAParticipants = await ParticipantRepository.findByUserId(userAId, 1000)
 
@@ -160,36 +182,61 @@ export class ConversationService {
       return []
     }
 
+    const [conversationsRaw, participantsByConversation, latestMessagesByConversation] = await Promise.all([
+      ConversationRepository.findByIds(conversationIds),
+      this.mapWithConcurrency(
+        conversationIds,
+        async (conversationId) => {
+          const records = await ParticipantRepository.findByConversationId(conversationId, 100)
+          return [conversationId, records || []]
+        },
+        8
+      ),
+      this.mapWithConcurrency(
+        conversationIds,
+        async (conversationId) => {
+          const result = await MessageRepository.getByConversation(conversationId, 1)
+          return [conversationId, result?.messages?.[0] || null]
+        },
+        8
+      ),
+    ])
+
+    const conversationById = new Map((conversationsRaw || []).map((conv) => [String(conv.conversationId), conv]))
+    const participantMap = new Map(participantsByConversation)
+    const latestMessageMap = new Map(latestMessagesByConversation)
+
     // Fetch conversations
     const conversations = []
     for (const conversationId of conversationIds) {
-      try {
-        const conv = await this.getConversationById(conversationId, userId)
-        const participant = activeParticipants.find((item) => item.conversationId === conversationId)
-        const clearedAt = Number(participant?.clearedAt || 0)
-        const updatedAt = Number(conv?.updatedAt || 0)
+      const conv = conversationById.get(String(conversationId))
+      if (!conv) continue
 
-        // Hide conversation for this user until there is newer activity after clear
-        if (clearedAt && updatedAt <= clearedAt) {
-          continue
-        }
+      const participantRecords = participantMap.get(conversationId) || []
+      const participant = activeParticipants.find((item) => item.conversationId === conversationId)
+      const latestMessage = latestMessageMap.get(conversationId) || null
 
-        conversations.push(conv)
-      } catch (error) {
-        // Log error but continue with other conversations
-        console.error(`Failed to fetch conversation ${conversationId}:`, error.message)
-        
-        // Try to fetch directly to see if conversation exists
-        const directConv = await ConversationRepository.findById(conversationId)
-        if (directConv) {
-          conversations.push({
-            ...directConv,
-            participants: participants
-              .filter(p => p.conversationId === conversationId && !p.leftAt)
-              .map(p => p.userId),
-          })
-        }
+      const updatedAt = Number(
+        latestMessage?.createdAt ||
+        latestMessage?.updatedAt ||
+        conv?.updatedAt ||
+        0
+      )
+      const clearedAt = Number(participant?.clearedAt || 0)
+
+      // Hide conversation for this user until there is newer activity after clear
+      if (clearedAt && updatedAt <= clearedAt) {
+        continue
       }
+
+      conversations.push({
+        ...conv,
+        participants: participantRecords
+          .filter((item) => !item?.leftAt)
+          .map((item) => item.userId),
+        latestMessage,
+        lastMessageAt: updatedAt || conv?.updatedAt,
+      })
     }
 
     // Sort by last message time

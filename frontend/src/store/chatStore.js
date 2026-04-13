@@ -27,13 +27,39 @@ const useChatStore = create((set) => ({
     set((state) => {
       // Check if message already exists (by messageId or _id)
       const messageId = normalizeId(message._id || message.messageId)
-      const exists = state.messages.some((msg) => {
+      const existsById = state.messages.some((msg) => {
         const msgId = normalizeId(msg._id || msg.messageId)
         return msgId === messageId
       })
-      
-      if (exists) {
+
+      if (existsById) {
         return { messages: state.messages }
+      }
+
+      const incomingClientMessageId = normalizeId(message?.clientMessageId)
+      if (incomingClientMessageId) {
+        const existsByClientMessageId = state.messages.some((msg) =>
+          normalizeId(msg?.clientMessageId) === incomingClientMessageId
+        )
+
+        if (existsByClientMessageId) {
+          return {
+            messages: state.messages.map((msg) => {
+              if (normalizeId(msg?.clientMessageId) !== incomingClientMessageId) {
+                return msg
+              }
+
+              return {
+                ...msg,
+                ...message,
+                _id: message._id || message.messageId || msg._id,
+                messageId: message.messageId || message._id || msg.messageId,
+                status: message.status || 'sent',
+                isOptimistic: false,
+              }
+            }),
+          }
+        }
       }
       
       return { messages: [message, ...state.messages] }

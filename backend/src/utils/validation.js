@@ -65,6 +65,7 @@ export const sendMessageValidation = (data) => {
       'string.max': 'Message must not exceed 5000 characters',
     }),
     replyTo: joi.string().allow(null, '').optional(),
+    clientMessageId: joi.string().max(128).optional(),
   })
 
   return schema.validate(data)
