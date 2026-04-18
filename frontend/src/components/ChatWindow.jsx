@@ -1,10 +1,58 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import '../styles/ChatWindow.css'
-import { FiPhone, FiVideo, FiInfo, FiTrash2, FiPaperclip, FiX } from 'react-icons/fi'
+import { FiPhone, FiVideo, FiInfo, FiPaperclip, FiX } from 'react-icons/fi'
 import Message from './Message'
-import { userService } from '../services/api'
+import ConversationInfoPanel from './ConversationInfoPanel'
+import ShareMessageModal from './ShareMessageModal'
+import { conversationService, userService } from '../services/api'
+import { useDialog } from '../context/DialogContext'
 
 const SEND_COOLDOWN_MS = 350
+
+const CHAT_THEME_PRESETS = {
+  default: {
+    '--chat-bg': '#ffffff',
+    '--bubble-own-bg': 'linear-gradient(135deg, #00CCCC, #009999)',
+    '--bubble-own-color': '#ffffff',
+    '--bubble-other-bg': '#f0f2f5',
+    '--bubble-other-color': '#000000',
+  },
+  snow: {
+    '--chat-bg': '#f8fafc',
+    '--bubble-own-bg': '#111827',
+    '--bubble-own-color': '#ffffff',
+    '--bubble-other-bg': '#e5e7eb',
+    '--bubble-other-color': '#111827',
+  },
+  mint: {
+    '--chat-bg': 'linear-gradient(180deg, #ecfeff 0%, #f0fdfa 100%)',
+    '--bubble-own-bg': '#0f766e',
+    '--bubble-own-color': '#ffffff',
+    '--bubble-other-bg': '#cffafe',
+    '--bubble-other-color': '#134e4a',
+  },
+  sunset: {
+    '--chat-bg': 'linear-gradient(180deg, #fff7ed 0%, #ffe4e6 100%)',
+    '--bubble-own-bg': '#9a3412',
+    '--bubble-own-color': '#ffffff',
+    '--bubble-other-bg': '#fed7aa',
+    '--bubble-other-color': '#7c2d12',
+  },
+  lavender: {
+    '--chat-bg': 'linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%)',
+    '--bubble-own-bg': '#5b21b6',
+    '--bubble-own-color': '#ffffff',
+    '--bubble-other-bg': '#ddd6fe',
+    '--bubble-other-color': '#4c1d95',
+  },
+  dark: {
+    '--chat-bg': '#0f172a',
+    '--bubble-own-bg': '#38bdf8',
+    '--bubble-own-color': '#082f49',
+    '--bubble-other-bg': '#1e293b',
+    '--bubble-other-color': '#e2e8f0',
+  },
+}
 
 const formatFileSize = (size = 0) => {
   if (!Number.isFinite(size) || size <= 0) return '0 B'
@@ -80,7 +128,15 @@ const ChatWindow = ({
   loading,
   onTypingStart,
   onTypingStop,
+  conversations,
+  conversationPreference,
+  onUpdateConversationPreference,
+  onCreateGroupConversation,
+  onOpenNewConversation,
+  onShareMessage,
+  onRefreshConversationData,
 }) => {
+  const { notify } = useDialog()
   const [messageInput, setMessageInput] = useState('')
   const [replyingTo, setReplyingTo] = useState(null)
   const [editingMessage, setEditingMessage] = useState(null)
@@ -99,6 +155,10 @@ const ChatWindow = ({
   const sendCooldownTimerRef = useRef(null)
   const initialScrolledConversationRef = useRef('')
   const [isSending, setIsSending] = useState(false)
+  const [showConversationInfo, setShowConversationInfo] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [selectedShareMessage, setSelectedShareMessage] = useState(null)
+  const [currentUserGroupRole, setCurrentUserGroupRole] = useState('member')
 
   const createClientMessageId = () => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -130,11 +190,20 @@ const ChatWindow = ({
     ;(conversation?.participants || []).forEach((participant) => {
       const id = getParticipantId(participant)
       if (id) {
-        map.set(id, participant)
+        const profile = participantProfiles?.[id] || {}
+        const participantObject = typeof participant === 'object'
+          ? participant
+          : { userId: id }
+
+        map.set(id, {
+          ...participantObject,
+          ...profile,
+          userId: id,
+        })
       }
     })
     return map
-  }, [conversation])
+  }, [conversation, participantProfiles])
 
   const missingParticipantProfileIds = useMemo(() => {
     if (!conversation) return []
@@ -198,7 +267,51 @@ const ChatWindow = ({
     })
 
     initialScrolledConversationRef.current = ''
+    setShowConversationInfo(false)
   }, [conversation])
+
+  useEffect(() => {
+    const conversationId = normalizeId(conversation?._id || conversation?.conversationId)
+    if (!conversationId || conversation?.type !== 'group') {
+      setCurrentUserGroupRole('member')
+      return
+    }
+
+    let isCancelled = false
+
+    const loadCurrentRole = async () => {
+      try {
+        const response = await conversationService.getParticipants(conversationId)
+        if (isCancelled) return
+
+        const participants = response?.data?.participants || []
+        const currentUser = participants.find(
+          (participant) => normalizeId(participant?.userId) === normalizeId(currentUserId)
+        )
+
+        const fallbackRole =
+          normalizeId(conversation?.creatorId || conversation?.admin) === normalizeId(currentUserId)
+            ? 'admin'
+            : 'member'
+
+        setCurrentUserGroupRole(String(currentUser?.role || fallbackRole || 'member'))
+      } catch (error) {
+        if (isCancelled) return
+
+        const fallbackRole =
+          normalizeId(conversation?.creatorId || conversation?.admin) === normalizeId(currentUserId)
+            ? 'admin'
+            : 'member'
+        setCurrentUserGroupRole(fallbackRole)
+      }
+    }
+
+    loadCurrentRole()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [conversation, currentUserId])
 
   useEffect(() => {
     const conversationId = normalizeId(conversation?._id || conversation?.conversationId)
@@ -319,6 +432,16 @@ const ChatWindow = ({
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
+    if (isReadOnlyGroupMode) {
+      await notify({
+        title: 'Không có quyền gửi tin nhắn',
+        message: 'Bạn không có quyền gửi tin nhắn vào nhóm này.',
+        confirmText: 'Đã hiểu',
+        variant: 'warning',
+      })
+      return
+    }
+
     const trimmedMessage = messageInput.trim()
     if ((!trimmedMessage && !selectedAttachment) || Date.now() < sendCooldownUntilRef.current) return
 
@@ -384,7 +507,7 @@ const ChatWindow = ({
   }
 
   const triggerAttachmentPicker = () => {
-    if (editingMessage) return
+    if (editingMessage || isReadOnlyGroupMode) return
     attachmentInputRef.current?.click()
   }
 
@@ -409,15 +532,77 @@ const ChatWindow = ({
     inputRef.current?.focus()
   }
 
+  const handleShareMessage = (message) => {
+    if (!message) return
+    setSelectedShareMessage(message)
+    setShowShareModal(true)
+  }
+
+  const handleShareMessageToFriends = async (targetUserIds) => {
+    if (!selectedShareMessage) return
+
+    await onShareMessage?.(selectedShareMessage, targetUserIds)
+    await notify({
+      title: 'Chia sẻ thành công',
+      message: 'Đã chia sẻ tin nhắn thành công.',
+      confirmText: 'OK',
+      variant: 'success',
+    })
+    setShowShareModal(false)
+    setSelectedShareMessage(null)
+  }
+
   const isGroup = conversation?.type === 'group'
   const replyingPreview = getReplyPreview(replyingTo)
+  const normalizedCurrentUserId = normalizeId(currentUserId)
+  const directCounterpart = useMemo(() => {
+    if (!conversation || conversation?.type !== '1-1') return null
+
+    const participants = conversation?.participants || []
+    const rawCounterpart =
+      participants.find((participant) => getParticipantId(participant) !== normalizedCurrentUserId) ||
+      participants[0]
+
+    if (!rawCounterpart) return null
+
+    const counterpartId = getParticipantId(rawCounterpart)
+    const profile = participantProfiles?.[counterpartId]
+
+    return {
+      id: counterpartId,
+      avatar: rawCounterpart?.avatar || profile?.avatar || conversation?.avatar || '',
+      name:
+        getParticipantName(rawCounterpart, participantProfiles) ||
+        profile?.nickname ||
+        profile?.displayName ||
+        profile?.fullName ||
+        profile?.username ||
+        'Người dùng',
+    }
+  }, [conversation, normalizedCurrentUserId, participantProfiles])
+
+  const handleUpdatePreference = useCallback(
+    (patch) => {
+      if (!conversation || !patch || typeof patch !== 'object') return
+      const conversationId = conversation?._id || conversation?.conversationId
+      if (!conversationId) return
+      onUpdateConversationPreference?.(conversationId, patch)
+    },
+    [conversation, onUpdateConversationPreference]
+  )
+
   const chatHeaderName = useMemo(() => {
     if (!conversation) return ''
+
+    const customAlias = String(conversationPreference?.alias || '').trim()
+    if (customAlias) {
+      return customAlias
+    }
 
     if (conversation?.type === '1-1') {
       const participants = conversation.participants || []
       const counterpart =
-        participants.find((participant) => getParticipantId(participant) !== normalizeId(currentUserId)) ||
+        participants.find((participant) => getParticipantId(participant) !== normalizedCurrentUserId) ||
         participants[0]
 
       return getParticipantName(counterpart, participantProfiles) || 'Người dùng'
@@ -430,7 +615,7 @@ const ChatWindow = ({
       .filter(Boolean)
 
     return names.join(', ') || 'Nhóm chat'
-  }, [conversation, currentUserId, participantProfiles])
+  }, [conversation, conversationPreference?.alias, normalizedCurrentUserId, participantProfiles])
 
   const hasTypingUsers = useMemo(() => {
     if (!typingUsers) return false
@@ -441,8 +626,21 @@ const ChatWindow = ({
     })
   }, [currentUserId, typingUsers])
 
+  const chatThemeStyle = useMemo(() => {
+    const themeKey = String(conversationPreference?.chatBackground || 'default')
+    return CHAT_THEME_PRESETS[themeKey] || CHAT_THEME_PRESETS.default
+  }, [conversationPreference?.chatBackground])
+
+  const isReadOnlyGroupMode = useMemo(() => {
+    const isGroupConversation = conversation?.type === 'group'
+    const adminOnlyMessaging = Boolean(conversation?.groupSettings?.adminOnlyMessaging)
+    const canSendAsManager = currentUserGroupRole === 'admin' || currentUserGroupRole === 'moderator'
+
+    return isGroupConversation && adminOnlyMessaging && !canSendAsManager
+  }, [conversation, currentUserGroupRole])
+
   return (
-    <div className="chat-window">
+  <div className="chat-window" style={chatThemeStyle}>
       {!conversation ? (
         <div className="no-conversation">
           <div className="no-conversation-content">
@@ -467,16 +665,7 @@ const ChatWindow = ({
             <div className="chat-header-actions">
               <button title="Gọi" aria-label="call"><FiPhone /></button>
               <button title="Video" aria-label="video"><FiVideo /></button>
-              <button title="Thông tin" aria-label="info"><FiInfo /></button>
-              <button
-                type="button"
-                className="danger"
-                title="Xóa toàn bộ đoạn chat"
-                aria-label="delete conversation"
-                onClick={() => onDeleteConversation?.()}
-              >
-                <FiTrash2 />
-              </button>
+              <button title="Thông tin" aria-label="info" onClick={() => setShowConversationInfo(true)}><FiInfo /></button>
             </div>
           </div>
 
@@ -513,6 +702,7 @@ const ChatWindow = ({
                   onEdit={handleStartEditMessage}
                   onDelete={onDeleteMessage}
                   onReact={onReactMessage}
+                  onShare={handleShareMessage}
                   replyPreviewMap={replyPreviewMap}
                 />
               ))
@@ -533,6 +723,12 @@ const ChatWindow = ({
 
           {/* Input Area */}
           <div className="chat-input-area">
+            {isReadOnlyGroupMode ? (
+              <div className="read-only-notice" role="status" aria-live="polite">
+                Bạn không có quyền gửi tin nhắn vào nhóm này
+              </div>
+            ) : (
+              <>
             {editingMessage && (
               <div className="reply-preview">
                 <span>Đang chỉnh sửa tin nhắn...</span>
@@ -606,7 +802,36 @@ const ChatWindow = ({
                 </button>
               </div>
             )}
+              </>
+            )}
           </div>
+
+          <ConversationInfoPanel
+            isOpen={showConversationInfo}
+            onClose={() => setShowConversationInfo(false)}
+            conversation={conversation}
+            currentUserId={currentUserId}
+            allConversations={conversations}
+            messages={messages}
+            counterpart={directCounterpart}
+            preference={conversationPreference || {}}
+            onUpdatePreference={handleUpdatePreference}
+            onOpenNewConversation={onOpenNewConversation}
+            onCreateGroupConversation={onCreateGroupConversation}
+            onDeleteConversation={onDeleteConversation}
+            onRefreshConversationData={onRefreshConversationData}
+          />
+
+          <ShareMessageModal
+            isOpen={showShareModal}
+            onClose={() => {
+              setShowShareModal(false)
+              setSelectedShareMessage(null)
+            }}
+            message={selectedShareMessage}
+            currentUserId={currentUserId}
+            onShare={handleShareMessageToFriends}
+          />
         </>
       )}
     </div>

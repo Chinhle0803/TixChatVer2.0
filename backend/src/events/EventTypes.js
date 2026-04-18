@@ -30,8 +30,10 @@ export const CONVERSATION_EVENTS = {
   CREATED: 'conversation:created',
   UPDATED: 'conversation:updated',
   DELETED: 'conversation:deleted',
+  DISSOLVED: 'conversation:dissolved',
   PARTICIPANT_ADDED: 'conversation:participant_added',
   PARTICIPANT_REMOVED: 'conversation:participant_removed',
+  PARTICIPANT_ROLE_UPDATED: 'conversation:participant_role_updated',
   ARCHIVED: 'conversation:archived',
 }
 

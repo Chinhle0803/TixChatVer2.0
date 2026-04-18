@@ -25,7 +25,7 @@ export const uploadAvatar = multer({
 })
 
 const messageAttachmentFilter = (req, file, cb) => {
-  const allowedMimeTypes = [
+  const allowedMimeTypes = new Set([
     'image/jpeg',
     'image/png',
     'image/gif',
@@ -44,11 +44,46 @@ const messageAttachmentFilter = (req, file, cb) => {
     'text/plain',
     'text/csv',
     'application/zip',
+    'application/x-zip-compressed',
     'application/x-rar-compressed',
+    'application/vnd.rar',
+    'application/x-rar',
     'application/octet-stream',
-  ]
+  ])
 
-  if (allowedMimeTypes.includes(file.mimetype)) {
+  const allowedExtensions = new Set([
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'mp4',
+    'webm',
+    'mov',
+    'mkv',
+    'pdf',
+    'doc',
+    'docx',
+    'xls',
+    'xlsx',
+    'ppt',
+    'pptx',
+    'txt',
+    'csv',
+    'zip',
+    'rar',
+  ])
+
+  const mimeType = String(file?.mimetype || '').toLowerCase()
+  const extension = String(file?.originalname || '')
+    .split('.')
+    .pop()
+    .toLowerCase()
+
+  const isMimeAllowed = allowedMimeTypes.has(mimeType)
+  const isExtensionAllowed = allowedExtensions.has(extension)
+
+  if (isMimeAllowed || isExtensionAllowed) {
     cb(null, true)
   } else {
     cb(new Error('Unsupported file type for message attachment'), false)

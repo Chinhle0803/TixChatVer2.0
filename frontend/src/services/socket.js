@@ -1,18 +1,73 @@
 import { io } from 'socket.io-client'
 import useAuthStore from '../store/authStore'
 import useChatStore from '../store/chatStore'
-import { conversationService } from './api'
+import { conversationService, userService } from './api'
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
 
 let socket = null
-
 const normalizeId = (value) => {
   if (!value) return ''
   if (typeof value === 'object') {
     return String(value._id || value.userId || value.id || value.conversationId || value.messageId || '')
   }
   return String(value)
+}
+
+const buildRoleSystemMessage = async (payload = {}) => {
+  const newRole = String(payload?.newRole || '').toLowerCase()
+  const oldRole = String(payload?.oldRole || '').toLowerCase()
+  const targetUserId = normalizeId(payload?.targetUserId)
+  const conversationId = normalizeId(payload?.conversationId)
+
+  if (!newRole || !targetUserId || !conversationId) {
+    return null
+  }
+
+  let targetDisplayName = targetUserId
+  try {
+    const profileResponse = await userService.getProfile(targetUserId)
+    const profile = profileResponse?.data?.user || null
+    targetDisplayName =
+      profile?.nickname ||
+      profile?.displayName ||
+      profile?.fullName ||
+      profile?.username ||
+      targetUserId
+  } catch (_) {
+    // Keep fallback ID-based name if profile fetch fails
+  }
+
+  let text = ''
+
+  if (newRole === 'admin' && oldRole !== 'admin') {
+    text = `${targetDisplayName} đã được bổ nhiệm làm trưởng nhóm.`
+  } else if (newRole === 'moderator' && oldRole !== 'moderator') {
+    text = `${targetDisplayName} đã được bổ nhiệm làm phó nhóm.`
+  } else if (oldRole === 'moderator' && newRole === 'member') {
+    text = `${targetDisplayName} đã bị miễn nhiệm vai trò phó nhóm.`
+  } else if (oldRole !== newRole) {
+    text = `Vai trò của ${targetDisplayName} đã được cập nhật.`
+  }
+
+  if (!text) {
+    return null
+  }
+
+  const messageId = `sys-role-${conversationId}-${targetUserId}-${Date.now()}`
+
+  return {
+    _id: messageId,
+    messageId,
+    conversationId,
+    type: 'system',
+    content: text,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    senderId: 'system',
+    reactions: {},
+    attachments: [],
+  }
 }
 
 export const initSocket = () => {
@@ -194,12 +249,158 @@ export const setupSocketListeners = (socket) => {
   })
 
   // Participant events
-  socket.on('participant:added', (data) => {
-    console.log('Participant added:', data.participantId)
+  socket.on('participant:added', async (data) => {
+    const conversationId = normalizeId(data?.conversationId)
+    if (!conversationId) {
+      console.log('Participant added:', data?.participantId)
+      return
+    }
+
+    const { conversations, setConversations } = useChatStore.getState()
+
+    const existingConversation = (conversations || []).find((conversation) => {
+      const id = normalizeId(conversation?._id || conversation?.conversationId)
+      return id === conversationId
+    })
+
+    if (existingConversation) {
+      return
+    }
+
+    let fetchedConversation = null
+    try {
+      const response = await conversationService.getConversation(conversationId)
+      fetchedConversation = response?.data?.conversation || null
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch conversation after participant added:', error?.message || error)
+      return
+    }
+
+    const nextConversation = {
+      ...fetchedConversation,
+      _id: normalizeId(fetchedConversation?._id || fetchedConversation?.conversationId) || conversationId,
+      conversationId,
+      unreadCount: Number(fetchedConversation?.unreadCount || 0),
+      lastMessageAt:
+        fetchedConversation?.lastMessageAt ||
+        fetchedConversation?.updatedAt ||
+        fetchedConversation?.createdAt ||
+        Date.now(),
+    }
+
+    const nextConversations = (conversations || [])
+      .filter((conversation) => {
+        const id = normalizeId(conversation?._id || conversation?.conversationId)
+        return id !== conversationId
+      })
+      .concat(nextConversation)
+      .sort((a, b) => {
+        const timeA = Number(a?.lastMessageAt || a?.updatedAt || a?.createdAt || 0)
+        const timeB = Number(b?.lastMessageAt || b?.updatedAt || b?.createdAt || 0)
+        return timeB - timeA
+      })
+
+    setConversations(nextConversations)
   })
 
   socket.on('participant:removed', (data) => {
     console.log('Participant removed:', data.participantId)
+  })
+
+  socket.on('participant:role_updated', async (data) => {
+    const conversationId = normalizeId(data?.conversationId)
+    if (!conversationId) return
+
+    const { currentConversation, addMessage } = useChatStore.getState()
+    const currentConversationId = normalizeId(currentConversation?._id || currentConversation?.conversationId)
+    if (!currentConversationId || currentConversationId !== conversationId) {
+      return
+    }
+
+    const systemMessage = await buildRoleSystemMessage(data)
+    if (!systemMessage) return
+
+    addMessage(systemMessage)
+  })
+
+  socket.on('conversation:created', async (data) => {
+    const conversationId = normalizeId(data?.conversationId)
+    if (!conversationId) return
+
+    const { conversations, setConversations } = useChatStore.getState()
+    const existingConversation = (conversations || []).find((conversation) => {
+      const id = normalizeId(conversation?._id || conversation?.conversationId)
+      return id === conversationId
+    })
+
+    if (existingConversation) return
+
+    let fetchedConversation = null
+    try {
+      const response = await conversationService.getConversation(conversationId)
+      fetchedConversation = response?.data?.conversation || null
+    } catch (error) {
+      console.warn('⚠️ Failed to fetch newly created conversation:', error?.message || error)
+    }
+
+    const fallbackConversation = {
+      _id: conversationId,
+      conversationId,
+      type: data?.type || 'group',
+      participants: Array.isArray(data?.participants) ? data.participants : [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      lastMessageAt: Date.now(),
+      unreadCount: 0,
+    }
+
+    const nextConversation = {
+      ...(fetchedConversation || fallbackConversation),
+      _id: normalizeId(fetchedConversation?._id || fetchedConversation?.conversationId) || conversationId,
+      conversationId,
+      unreadCount: Number(fetchedConversation?.unreadCount || 0),
+      lastMessageAt:
+        fetchedConversation?.lastMessageAt ||
+        fetchedConversation?.updatedAt ||
+        fetchedConversation?.createdAt ||
+        Date.now(),
+    }
+
+    const nextConversations = (conversations || [])
+      .filter((conversation) => {
+        const id = normalizeId(conversation?._id || conversation?.conversationId)
+        return id !== conversationId
+      })
+      .concat(nextConversation)
+      .sort((a, b) => {
+        const timeA = Number(a?.lastMessageAt || a?.updatedAt || a?.createdAt || 0)
+        const timeB = Number(b?.lastMessageAt || b?.updatedAt || b?.createdAt || 0)
+        return timeB - timeA
+      })
+
+    setConversations(nextConversations)
+  })
+
+  socket.on('conversation:dissolved', async (data) => {
+    const conversationId = normalizeId(data?.conversationId)
+    if (!conversationId) return
+
+    const {
+      currentConversation,
+      removeConversationById,
+    } = useChatStore.getState()
+
+    const currentConversationId = normalizeId(currentConversation?._id || currentConversation?.conversationId)
+
+    if (currentConversationId === conversationId) {
+      try {
+        await leaveConversation(conversationId)
+      } catch (error) {
+        console.warn('⚠️ Failed to leave dissolved conversation room:', error?.message || error)
+      }
+    }
+
+    removeConversationById(conversationId)
   })
 
   socket.on('friend_request:new', () => {

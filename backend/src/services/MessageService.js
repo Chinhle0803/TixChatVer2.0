@@ -95,6 +95,24 @@ export class MessageService {
       throw new Error('You are not a participant of this conversation')
     }
 
+    if (conversation.type === 'group') {
+      const blockedUserIds = Array.isArray(conversation?.blockedUserIds)
+        ? conversation.blockedUserIds.map((id) => String(id))
+        : []
+
+      if (blockedUserIds.includes(String(senderId))) {
+        throw new Error('You are blocked from this group')
+      }
+
+      const groupSettings = conversation?.groupSettings || {}
+      if (groupSettings.adminOnlyMessaging) {
+        const senderRole = String(participant.role || 'member')
+        if (!['admin', 'moderator'].includes(senderRole)) {
+          throw new Error('Group is currently in admin-only messaging mode')
+        }
+      }
+    }
+
     // Also reactivate any legacy left participant in this direct conversation so
     // they receive new messages in the same thread instead of creating a new one.
     if (conversation.type === '1-1' || conversation.type === 'direct') {

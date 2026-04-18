@@ -10,6 +10,40 @@ const getMessageAttachmentType = (mimeType = '') => {
   return 'file'
 }
 
+const inferMimeTypeByFileName = (fileName = '') => {
+  const extension = String(fileName).split('.').pop()?.toLowerCase()
+
+  const mimeByExtension = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
+    mkv: 'video/x-matroska',
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ppt: 'application/vnd.ms-powerpoint',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    txt: 'text/plain',
+    csv: 'text/csv',
+    zip: 'application/zip',
+    rar: 'application/x-rar-compressed',
+  }
+
+  return mimeByExtension[extension] || 'application/octet-stream'
+}
+
+const sanitizeFileName = (value = '') =>
+  String(value || '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .trim()
+
 export class MessageController {
   async broadcastMessageToParticipants(conversationId, message) {
     const io = getIO()
@@ -113,6 +147,101 @@ export class MessageController {
       })
     } catch (err) {
       res.status(400).json({ error: err.message })
+    }
+  }
+
+  async forwardAttachmentByUrl(req, res, next) {
+    try {
+      const {
+        conversationId,
+        sourceUrl,
+        content = '',
+        replyTo = null,
+        clientMessageId = null,
+        fileName = '',
+        mimeType = '',
+      } = req.body || {}
+
+      if (!conversationId) {
+        return res.status(400).json({ error: 'Conversation ID is required' })
+      }
+
+      if (!sourceUrl || typeof sourceUrl !== 'string') {
+        return res.status(400).json({ error: 'Source URL is required' })
+      }
+
+      let normalizedUrl
+      try {
+        normalizedUrl = new URL(sourceUrl)
+      } catch (_) {
+        return res.status(400).json({ error: 'Source URL is invalid' })
+      }
+
+      if (!['http:', 'https:'].includes(normalizedUrl.protocol)) {
+        return res.status(400).json({ error: 'Source URL protocol is not supported' })
+      }
+
+      const response = await fetch(normalizedUrl.toString())
+      if (!response.ok) {
+        return res.status(400).json({
+          error: `Cannot download source attachment (${response.status})`,
+        })
+      }
+
+      const arrayBuffer = await response.arrayBuffer()
+      const fileBuffer = Buffer.from(arrayBuffer)
+
+      if (!fileBuffer.length) {
+        return res.status(400).json({ error: 'Downloaded attachment is empty' })
+      }
+
+      const fallbackName = normalizedUrl.pathname.split('/').pop() || `forwarded-${Date.now()}`
+      const safeFileName = sanitizeFileName(fileName || fallbackName) || `forwarded-${Date.now()}`
+
+      const resolvedMimeType =
+        String(mimeType || '').trim() ||
+        String(response.headers.get('content-type') || '').split(';')[0] ||
+        inferMimeTypeByFileName(safeFileName)
+
+      const attachmentType = getMessageAttachmentType(resolvedMimeType)
+      const uploadResult = await S3Service.uploadMessageAttachment({
+        conversationId,
+        senderId: req.userId,
+        fileBuffer,
+        fileName: safeFileName,
+        mimeType: resolvedMimeType,
+      })
+
+      const attachments = [
+        {
+          type: attachmentType,
+          url: uploadResult.url,
+          size: fileBuffer.length,
+          name: safeFileName,
+          mimeType: resolvedMimeType,
+        },
+      ]
+
+      const message = await messageService.sendMessage(
+        conversationId,
+        req.userId,
+        content,
+        replyTo,
+        {
+          type: attachmentType,
+          attachments,
+          clientMessageId,
+        }
+      )
+
+      await this.broadcastMessageToParticipants(conversationId, message)
+
+      return res.status(201).json({
+        message: 'Attachment forwarded successfully',
+        data: message,
+      })
+    } catch (err) {
+      return res.status(400).json({ error: err.message })
     }
   }
 

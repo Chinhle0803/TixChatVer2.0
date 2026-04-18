@@ -152,6 +152,35 @@ const useChatStore = create((set) => ({
       },
     })),
 
+  removeConversationById: (conversationId) =>
+    set((state) => {
+      const targetId = normalizeId(conversationId)
+      if (!targetId) {
+        return state
+      }
+
+      const nextConversations = (state.conversations || []).filter((conversation) => {
+        const id = normalizeId(conversation?._id || conversation?.conversationId)
+        return id !== targetId
+      })
+
+      const nextUnreadByConversation = { ...(state.unreadByConversation || {}) }
+      delete nextUnreadByConversation[targetId]
+
+      const currentConversationId = normalizeId(
+        state.currentConversation?._id || state.currentConversation?.conversationId
+      )
+
+      const isRemovingCurrent = currentConversationId === targetId
+
+      return {
+        conversations: nextConversations,
+        unreadByConversation: nextUnreadByConversation,
+        currentConversation: isRemovingCurrent ? null : state.currentConversation,
+        messages: isRemovingCurrent ? [] : state.messages,
+      }
+    }),
+
   setFriendRequestCount: (count) =>
     set({ friendRequestCount: Math.max(0, Number(count) || 0) }),
 

@@ -91,6 +91,7 @@ const ConversationList = ({
   onSelectConversation,
   onlineUsers,
   unreadByConversation = {},
+  conversationPreferences = {},
   onSearch,
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
@@ -187,8 +188,14 @@ const ConversationList = ({
 
   const getConversationName = (conv) => {
     const participants = conv?.participants || []
+    const conversationId = normalizeId(conv?._id || conv?.conversationId)
+    const customAlias = String(conversationPreferences?.[conversationId]?.alias || '').trim()
 
     if (conv?.type === '1-1') {
+      if (customAlias) {
+        return customAlias
+      }
+
       const otherParticipant =
         participants.find((participant) => getParticipantId(participant) !== currentUserId) || participants[0]
 
@@ -244,6 +251,26 @@ const ConversationList = ({
     return formatRelativeTime(parseTimestamp(timestamp), nowTs)
   }
 
+  const getConversationAvatar = (conv) => {
+    if (!conv) return ''
+
+    // Group chat: keep existing group avatar
+    if (conv?.type !== '1-1') {
+      return conv?.avatar || ''
+    }
+
+    // Direct chat: prefer counterpart real avatar from participant/profile map
+    const participants = conv?.participants || []
+    const counterpart =
+      participants.find((participant) => getParticipantId(participant) !== currentUserId) || participants[0]
+
+    const counterpartId = getParticipantId(counterpart)
+    const profileAvatar = profileMap?.[counterpartId]?.avatar
+    const participantAvatar = typeof counterpart === 'object' ? counterpart?.avatar : ''
+
+    return participantAvatar || profileAvatar || conv?.avatar || ''
+  }
+
   const getCounterpartId = (conv) => {
     const participants = conv?.participants || []
     const otherParticipant =
@@ -279,6 +306,7 @@ const ConversationList = ({
         ) : (
           conversations.map((conv) => {
             const unreadCount = getUnreadCount(conv)
+            const conversationAvatar = getConversationAvatar(conv)
 
             return (
             <div
@@ -292,8 +320,8 @@ const ConversationList = ({
               onClick={() => onSelectConversation(conv)}
             >
               <div className="conversation-avatar">
-                {conv.avatar ? (
-                  <img src={conv.avatar} alt={getConversationName(conv)} />
+                {conversationAvatar ? (
+                  <img src={conversationAvatar} alt={getConversationName(conv)} />
                 ) : (
                   <div className="avatar-placeholder">
                     {(getConversationName(conv)[0] || '?').toUpperCase()}

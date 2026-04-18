@@ -164,14 +164,59 @@ export const useChat = () => {
           participantIds,
           name
         )
-        setCurrentConversation(response.data.conversation)
-        return response.data.conversation
+        const createdConversation = response.data.conversation || {}
+        const createdConversationId = createdConversation?._id || createdConversation?.conversationId
+        const currentUserId = normalizeId(user?._id || user?.userId)
+
+        const normalizedParticipants = Array.isArray(createdConversation?.participants)
+          ? createdConversation.participants
+          : [
+              currentUserId,
+              ...(Array.isArray(participantIds) ? participantIds.map((id) => normalizeId(id)).filter(Boolean) : []),
+            ]
+
+        const normalizedConversation = {
+          ...createdConversation,
+          _id: createdConversationId || createdConversation?._id,
+          conversationId: createdConversationId || createdConversation?.conversationId,
+          type: createdConversation?.type || type,
+          name:
+            createdConversation?.name ||
+            (type === 'group' && typeof name === 'string' && name.trim() ? name.trim() : ''),
+          participants: normalizedParticipants,
+          updatedAt: createdConversation?.updatedAt || Date.now(),
+          createdAt: createdConversation?.createdAt || Date.now(),
+          lastMessageAt:
+            createdConversation?.lastMessageAt ||
+            createdConversation?.updatedAt ||
+            createdConversation?.createdAt ||
+            Date.now(),
+          latestMessage: createdConversation?.latestMessage || null,
+          unreadCount: Number(createdConversation?.unreadCount || 0),
+        }
+
+        const currentList = Array.isArray(conversations) ? conversations : []
+        const nextListWithoutDuplicate = currentList.filter((item) => {
+          const existingId = normalizeId(item?._id || item?.conversationId)
+          return existingId !== normalizeId(normalizedConversation?._id || normalizedConversation?.conversationId)
+        })
+
+        const nextConversations = [normalizedConversation, ...nextListWithoutDuplicate].sort((a, b) => {
+          const timeA = Number(a?.lastMessageAt || a?.updatedAt || a?.createdAt || 0)
+          const timeB = Number(b?.lastMessageAt || b?.updatedAt || b?.createdAt || 0)
+          return timeB - timeA
+        })
+
+        setConversations(nextConversations)
+
+        setCurrentConversation(normalizedConversation)
+        return normalizedConversation
       } catch (err) {
         setError(err.response?.data?.error || 'Failed to create conversation')
         throw err
       }
     },
-    [setCurrentConversation]
+    [conversations, setConversations, setCurrentConversation, user?._id, user?.userId]
   )
 
   const sendMessage = useCallback(

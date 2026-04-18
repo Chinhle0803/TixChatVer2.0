@@ -97,10 +97,30 @@ export const conversationService = {
     apiClient.get(`/conversations/${conversationId}`),
   updateConversation: (conversationId, data) =>
     apiClient.put(`/conversations/${conversationId}`, data),
+  updateConversationAvatar: (conversationId, formData) =>
+    apiClient.post(`/conversations/${conversationId}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
   addParticipant: (conversationId, participantId) =>
     apiClient.post(`/conversations/${conversationId}/participants`, { participantId }),
   removeParticipant: (conversationId, participantId) =>
     apiClient.delete(`/conversations/${conversationId}/participants/${participantId}`),
+  getParticipants: (conversationId) =>
+    apiClient.get(`/conversations/${conversationId}/participants`),
+  updateParticipantRole: (conversationId, participantId, role) =>
+    apiClient.patch(`/conversations/${conversationId}/participants/${participantId}/role`, { role }),
+  updateGroupSettings: (conversationId, data) =>
+    apiClient.patch(`/conversations/${conversationId}/group-settings`, data),
+  getBlockedUsers: (conversationId) =>
+    apiClient.get(`/conversations/${conversationId}/blocked-users`),
+  blockUserInConversation: (conversationId, userId) =>
+    apiClient.post(`/conversations/${conversationId}/blocked-users/${userId}`),
+  unblockUserInConversation: (conversationId, userId) =>
+    apiClient.delete(`/conversations/${conversationId}/blocked-users/${userId}`),
+  leaveConversation: (conversationId, leaveSilently = false) =>
+    apiClient.post(`/conversations/${conversationId}/leave`, { leaveSilently }),
+  dissolveConversation: (conversationId) =>
+    apiClient.delete(`/conversations/${conversationId}/dissolve`),
   archiveConversation: (conversationId) =>
     apiClient.post(`/conversations/${conversationId}/archive`),
   deleteConversation: (conversationId) =>
@@ -142,6 +162,33 @@ export const messageService = {
         'Content-Type': 'multipart/form-data',
       },
     })
+  },
+  forwardAttachmentByUrl: (
+    conversationId,
+    sourceUrl,
+    metadata = {},
+    content = '',
+    replyTo = null,
+    options = {}
+  ) => {
+    const payload = {
+      conversationId,
+      sourceUrl,
+      content,
+      fileName: metadata?.name || metadata?.fileName || '',
+      mimeType: metadata?.mimeType || metadata?.type || '',
+      size: metadata?.size,
+    }
+
+    if (replyTo) {
+      payload.replyTo = replyTo
+    }
+
+    if (options?.clientMessageId) {
+      payload.clientMessageId = options.clientMessageId
+    }
+
+    return apiClient.post('/messages/attachment/forward', payload)
   },
   getMessages: (conversationId, limit = 50, lastEvaluatedKey = null) => {
     const serializedKey =

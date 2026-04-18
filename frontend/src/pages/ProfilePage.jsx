@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
 import { userService } from '../services/api'
+import { useDialog } from '../context/DialogContext'
 import '../styles/ProfilePage.css'
 
 const ProfilePage = () => {
   const navigate = useNavigate()
+  const { confirm } = useDialog()
   const { user, logout, updateUser } = useAuthStore()
 
   // Form states
@@ -182,10 +184,18 @@ const ProfilePage = () => {
 
   // Logout
   const handleLogout = async () => {
-    if (window.confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-      await logout()
-      navigate('/auth/login')
-    }
+    const shouldLogout = await confirm({
+      title: 'Xác nhận đăng xuất',
+      message: 'Bạn có chắc chắn muốn đăng xuất?',
+      confirmText: 'Đăng xuất',
+      cancelText: 'Ở lại',
+      variant: 'warning',
+    })
+
+    if (!shouldLogout) return
+
+    await logout()
+    navigate('/auth/login')
   }
 
   const togglePasswordVisibility = (field) => {

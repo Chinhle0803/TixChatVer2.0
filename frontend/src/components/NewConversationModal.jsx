@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { userService } from '../services/api'
+import { useDialog } from '../context/DialogContext'
 import '../styles/NewConversationModal.css'
 
 const normalizeId = (value) => {
@@ -22,6 +23,7 @@ const NewConversationModal = ({
   onStartConversation,
   onPendingRequestsCountChange,
 }) => {
+  const { confirm } = useDialog()
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [friendIds, setFriendIds] = useState([])
@@ -157,7 +159,13 @@ const NewConversationModal = ({
   }
 
   const handleRemoveFriend = async (userId) => {
-    const confirmed = window.confirm('Bạn có chắc muốn hủy kết bạn với người này không?')
+    const confirmed = await confirm({
+      title: 'Xác nhận hủy kết bạn',
+      message: 'Bạn có chắc muốn hủy kết bạn với người này không?',
+      confirmText: 'Hủy kết bạn',
+      cancelText: 'Giữ lại',
+      variant: 'warning',
+    })
     if (!confirmed) return
 
     await withActionLoading(`unfriend-${userId}`, async () => {

@@ -1,11 +1,12 @@
 import React from 'react'
 import '../styles/Message.css'
 // icons
-import { FiCornerUpLeft, FiEdit2, FiTrash2 } from 'react-icons/fi'
+import { FiCornerUpLeft, FiEdit2, FiShare2, FiTrash2 } from 'react-icons/fi'
 import { MdDone, MdDoneAll } from 'react-icons/md'
 import { FaRegSmile } from 'react-icons/fa'
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
+const FORWARDED_MARKER = '[[FORWARDED]]'
 
 const normalizeId = (value) => {
   if (!value) return ''
@@ -44,6 +45,21 @@ const getPrimaryAttachment = (message) => {
   return attachments[0] || null
 }
 
+const parseForwardedContent = (content = '') => {
+  if (typeof content !== 'string') {
+    return { isForwarded: false, cleanText: '' }
+  }
+
+  if (!content.startsWith(FORWARDED_MARKER)) {
+    return { isForwarded: false, cleanText: content }
+  }
+
+  return {
+    isForwarded: true,
+    cleanText: content.replace(FORWARDED_MARKER, '').trim(),
+  }
+}
+
 const resolveAttachmentType = (message, attachment) => {
   const rawType = message?.type || attachment?.type || ''
   if (rawType === 'image' || rawType === 'video' || rawType === 'file') {
@@ -56,6 +72,19 @@ const resolveAttachmentType = (message, attachment) => {
   return 'file'
 }
 
+const formatMessageTime = (value) => {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return date.toLocaleTimeString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
+
 const Message = ({
   message,
   currentUserId,
@@ -65,6 +94,7 @@ const Message = ({
   onEdit,
   onDelete,
   onReact,
+  onShare,
   replyPreviewMap,
 }) => {
   // Handle message safety
@@ -75,14 +105,38 @@ const Message = ({
   const messageId = message._id || message.messageId
 
   const normalizedCurrentUserId = normalizeId(currentUserId)
+  const isSystemMessage = String(message?.type || '').toLowerCase() === 'system' || message?.isSystem === true
+
+  if (isSystemMessage) {
+    return (
+      <div className="message system" role="status" aria-live="polite">
+        <div className="message-wrapper">
+          <div className="message-content">
+            <p className="message-text">{message?.content || ''}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const isOwnMessage = senderId !== '' && senderId === normalizedCurrentUserId
   const isSeen = message.seenBy && message.seenBy.length > 0
   const reactions = message.reactions || {}
   const reactionEntries = Object.entries(reactions).filter(([, userIds]) => Array.isArray(userIds) && userIds.length > 0)
   const replyPreview = getReplyPreview(message.replyTo, replyPreviewMap)
-  const messageText = typeof message.content === 'string' ? message.content : ''
+  const rawMessageText = typeof message.content === 'string' ? message.content : ''
+  const { isForwarded, cleanText: messageText } = parseForwardedContent(rawMessageText)
   const primaryAttachment = getPrimaryAttachment(message)
   const attachmentType = resolveAttachmentType(message, primaryAttachment)
+  const senderDisplayName =
+    senderInfo?.nickname ||
+    senderInfo?.displayName ||
+    senderInfo?.fullName ||
+    senderInfo?.name ||
+    senderInfo?.username ||
+    'Người dùng'
+  const senderAvatar = senderInfo?.avatar || ''
+  const senderInitial = String(senderDisplayName || '?').trim().charAt(0).toUpperCase() || '?'
 
   const hasReacted = (userIds = []) =>
     userIds.some((id) => normalizeId(id) === normalizedCurrentUserId)
@@ -90,8 +144,15 @@ const Message = ({
   return (
     <div className={`message ${isOwnMessage ? 'own' : 'other'}`}>
       <div className="message-wrapper">
-        {!isOwnMessage && isGroup && senderInfo && (
-          <div className="message-sender">{senderInfo.fullName}</div>
+        {isGroup && !isOwnMessage && (
+          <div className={`message-sender-row ${isOwnMessage ? 'own' : 'other'}`}>
+            {senderAvatar ? (
+              <img src={senderAvatar} alt={senderDisplayName} className="message-sender-avatar" />
+            ) : (
+              <span className="message-sender-avatar placeholder" aria-hidden="true">{senderInitial}</span>
+            )}
+            <span className="message-sender-name">{senderDisplayName}</span>
+          </div>
         )}
 
         <div style={{ display: 'flex', flexDirection: isOwnMessage ? 'row-reverse' : 'row', alignItems: 'center' }}>
@@ -132,7 +193,9 @@ const Message = ({
           </a>
         )}
 
-        {messageText && <p className="message-text">{messageText}</p>}
+  {isForwarded && <small className="message-forwarded-label">Đã chuyển tiếp</small>}
+
+  {messageText && <p className="message-text">{messageText}</p>}
 
         {reactionEntries.length > 0 && (
           <div className="message-reactions">
@@ -155,7 +218,7 @@ const Message = ({
 
         <div className="message-footer">
           <span className="message-time">
-            {new Date(message.createdAt).toLocaleTimeString()}
+            {formatMessageTime(message.createdAt)}
           </span>
 
           {isOwnMessage && (
@@ -171,6 +234,10 @@ const Message = ({
       <div className="message-actions">
           <button onClick={() => onReply?.(message)} title="Trả lời" aria-label="reply">
             <FiCornerUpLeft />
+          </button>
+
+          <button onClick={() => onShare?.(message)} title="Chia sẻ" aria-label="share">
+            <FiShare2 />
           </button>
 
         {isOwnMessage ? (

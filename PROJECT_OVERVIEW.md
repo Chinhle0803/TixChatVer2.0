@@ -1,76 +1,170 @@
-# 📱 TixChat - Project Overview
+# 📱 TixChat - Tổng Quan Dự Án
 
-**Version:** 1.1.0  
-**Last Updated:** April 12, 2026  
-**Purpose:** Comprehensive project overview for AI to understand without reading entire source code
-
----
-
-## 🎯 Project Description
-
-**TixChat** is a real-time chat application similar to Messenger/WhatsApp built with modern technologies. It provides real-time messaging, user authentication, profiles, and conversation management.
-
-### Core Features
-- ✅ Real-time messaging with Socket.IO
-- ✅ User authentication (Register, Login, JWT)
-- ✅ User profiles with avatar upload to S3
-- ✅ Conversation management (1-on-1, groups)
-- ✅ Message features (edit, delete, reply, emoji reactions)
-- ✅ Online status tracking
-- ✅ Email verification with OTP
-- ✅ Password reset and change
-- ✅ Message delivery status (sent, delivered, seen)
-- ✅ New conversation/search modal (🔍) in sidebar
-- ✅ Search users by name/username and start conversation from search results
-- ✅ Open existing 1-1 chat if already exists, otherwise create a new one automatically
-- ✅ Friend request flow in chat UI (send request, accept, reject, pending states)
-- ✅ Chat UX improvements:
-    - Auto-focus input when opening conversation
-    - Initial load only 20 latest messages
-    - Load older messages on demand via "Xem thêm tin nhắn cũ"
-    - Auto-scroll to newest messages when opening chat
-    - Edit message directly from chat input bar (no browser prompt)
+**Phiên bản:** 1.1.0  
+**Cập nhật lần cuối:** 13 tháng 4, 2026  
+**Mục đích:** Tổng quan toàn diện về dự án để AI hiểu mà không cần đọc toàn bộ mã nguồn
 
 ---
 
-## 📚 Tech Stack
+## 🎯 Mô Tả Dự Án
+
+**TixChat** là một ứng dụng chat thời gian thực tương tự Messenger/WhatsApp được xây dựng với công nghệ hiện đại. Nó cung cấp nhắn tin thời gian thực, xác thực người dùng, hồ sơ và quản lý cuộc trò chuyện.
+
+### Các Tính Năng Lõi
+
+#### ✅ **CÁC TÍNH NĂNG ĐÃ HOÀN THÀNH (Phiên bản 1.1.0)**
+
+**Xác thực & Bảo mật**
+- ✅ Đăng ký người dùng với xác minh email (OTP)
+- ✅ Đăng nhập người dùng với JWT tokens (access + refresh)
+- ✅ Băm mật khẩu với bcryptjs (10 salt rounds)
+- ✅ Luồng đặt lại mật khẩu với xác minh email
+- ✅ Thay đổi mật khẩu với xác minh mật khẩu hiện tại
+- ✅ JWT middleware cho các tuyến được bảo vệ
+- ✅ Cơ chế làm mới token
+- ✅ Xác thực đầu vào với lược đồ Joi
+
+**Quản lý Người dùng**
+- ✅ Hồ sơ người dùng với tiểu sử có thể tùy chỉnh
+- ✅ Tải lên avatar lên AWS S3 với lưu trữ URL
+- ✅ Xóa và thay thế avatar
+- ✅ Tìm kiếm người dùng theo tên/tên đăng nhập/email
+- ✅ Theo dõi trạng thái trực tuyến/ngoại tuyến của người dùng
+- ✅ Dấu thời gian lần cuối xem
+
+**Nhắn tin Thời gian Thực**
+- ✅ Nhắn tin thời gian thực với Socket.IO (không bỏ phiếu)
+- ✅ Gửi, nhận và phát sóng tin nhắn
+- ✅ Chỉnh sửa tin nhắn với theo dõi dấu thời gian
+- ✅ Xóa tin nhắn (xóa mềm với cờ `isDeleted`)
+- ✅ Trạng thái gửi tin nhắn (đã gửi → đã gửi → đã xem)
+- ✅ Phản ứng tin nhắn với hỗ trợ emoji
+- ✅ Trả lời/theo dõi tin nhắn (trường replyTo)
+- ✅ Chỉ báo nhập liệu qua Socket.IO
+- ✅ Tệp đính kèm tin nhắn (URL trong S3)
+
+**Quản lý Cuộc trò chuyện**
+- ✅ Tạo các cuộc trò chuyện riêng 1-trên-1
+- ✅ Tạo các cuộc trò chuyện nhóm
+- ✅ Phát hiện tự động cuộc trò chuyện 1-trên-1 trùng lặp
+- ✅ Lấy danh sách cuộc trò chuyện của người dùng (phân trang)
+- ✅ Lấy chi tiết cuộc trò chuyện với những người tham gia
+- ✅ Cập nhật cuộc trò chuyện (tên, mô tả, avatar cho nhóm)
+- ✅ Lưu trữ/xóa mềm cuộc trò chuyện
+- ✅ Thêm/xóa những người tham gia khỏi nhóm
+- ✅ Vai trò của những người tham gia (thành viên, quản trị viên, chủ sở hữu)
+- ✅ Xem trước tin nhắn cuối cùng trong danh sách cuộc trò chuyện
+- ✅ Dấu thời gian tin nhắn cuối cùng
+
+**Tính năng Frontend**
+- ✅ Các trang xác thực: Đăng nhập, Đăng ký, Quên mật khẩu, Xác minh email, Xác minh OTP
+- ✅ Trang trò chuyện với cập nhật thời gian thực
+- ✅ Trang hồ sơ người dùng với tải lên avatar
+- ✅ Danh sách cuộc trò chuyện với modal tìm kiếm (🔍)
+- ✅ Cửa sổ trò chuyện với hiển thị tin nhắn
+- ✅ Nhập tin nhắn với hỗ trợ emoji
+- ✅ Tìm kiếm người dùng theo tên/tên đăng nhập để bắt đầu cuộc trò chuyện mới
+- ✅ Tự động phát hiện trò chuyện 1-1 hiện có hoặc tạo trò chuyện mới
+- ✅ Luồng yêu cầu kết bạn (gửi, chấp nhận, từ chối, trạng thái chờ)
+- ✅ Menu ngữ cảnh tin nhắn (chỉnh sửa, xóa, phản ứng)
+- ✅ Tự động lấy tiêu điểm đầu vào khi mở cuộc trò chuyện
+- ✅ Tải ban đầu 20 tin nhắn mới nhất
+- ✅ Tải tin nhắn cũ theo yêu cầu bằng nút "Xem thêm tin nhắn cũ"
+- ✅ Tự động cuộn đến tin nhắn mới nhất khi mở trò chuyện
+- ✅ Chỉnh sửa tin nhắn trực tiếp từ thanh nhập liệu (không có hộp thoại xác nhận trình duyệt)
+- ✅ Thành phần ErrorBoundary để xử lý lỗi một cách nhạy cảm
+- ✅ Thiết kế đáp ứng cho di động/máy tính để bàn
+
+**Dịch vụ Email**
+- ✅ Xác minh email OTP (6 chữ số) qua AWS SES
+- ✅ Email đặt lại mật khẩu với liên kết xác minh
+- ✅ Email chào mừng đăng ký
+- ✅ Chức năng gửi lại OTP
+
+**Cơ sở dữ liệu & Cơ sở hạ tầng**
+- ✅ Migration DynamoDB (từ MongoDB)
+- ✅ Lược đồ bảng DynamoDB (Người dùng, Cuộc trò chuyện, Tin nhắn, Những người tham gia)
+- ✅ Global Secondary Indexes cho các truy vấn
+- ✅ Các tập lệnh tạo bảng tự động
+- ✅ Các tập lệnh thiết lập chỉ mục
+
+**Hệ thống Sự kiện**
+- ✅ Kiến trúc hướng sự kiện với EventBus
+- ✅ Các sự kiện tin nhắn (GỬI, CHỈNH SỬA, XÓA, REACTION_ADDED)
+- ✅ Các sự kiện người dùng (REGISTERED, LOGGED_IN, PASSWORD_RESET)
+- ✅ Các sự kiện cuộc trò chuyện
+
+**Các bản sửa chữa được áp dụng**
+- ✅ Đã sửa các truy vấn ParticipantRepository GSI (conversationId-userId-index)
+- ✅ Đã sửa vấn đề Cuộc trò chuyện không tìm thấy (loại bỏ creatorId-index)
+- ✅ Đã sửa sự không khớp _id vs conversationId trong frontend
+- ✅ Đã sửa lỗi hiển thị thành phần Message (an toàn null)
+- ✅ Đã sửa cảnh báo prop key trong danh sách cuộc trò chuyện/tin nhắn
+- ✅ Thêm ErrorBoundary để xử lý lỗi React
+
+---
+
+### Danh sách Tính năng Lõi Gốc
+- ✅ Nhắn tin thời gian thực với Socket.IO
+- ✅ Xác thực người dùng (Đăng ký, Đăng nhập, JWT)
+- ✅ Hồ sơ người dùng với tải lên avatar lên S3
+- ✅ Quản lý cuộc trò chuyện (1-trên-1, nhóm)
+- ✅ Các tính năng tin nhắn (chỉnh sửa, xóa, trả lời, phản ứng emoji)
+- ✅ Theo dõi trạng thái trực tuyến
+- ✅ Xác minh email với OTP
+- ✅ Đặt lại và thay đổi mật khẩu
+- ✅ Trạng thái gửi tin nhắn (đã gửi, đã gửi, đã xem)
+- ✅ Modal tìm kiếm/cuộc trò chuyện mới (🔍) trong thanh bên
+- ✅ Tìm kiếm người dùng theo tên/tên đăng nhập và bắt đầu cuộc trò chuyện từ kết quả tìm kiếm
+- ✅ Mở trò chuyện 1-1 hiện có nếu đã tồn tại, nếu không hãy tự động tạo trò chuyện mới
+- ✅ Luồng yêu cầu kết bạn trong UI trò chuyện (gửi yêu cầu, chấp nhận, từ chối, trạng thái chờ)
+- ✅ Cải thiện UX trò chuyện:
+    - Tự động lấy tiêu điểm đầu vào khi mở cuộc trò chuyện
+    - Tải ban đầu chỉ 20 tin nhắn mới nhất
+    - Tải tin nhắn cũ theo yêu cầu qua "Xem thêm tin nhắn cũ"
+    - Tự động cuộn đến tin nhắn mới nhất khi mở trò chuyện
+    - Chỉnh sửa tin nhắn trực tiếp từ thanh nhập tin nhắn (không có lời nhắc trình duyệt)
+
+---
+
+## 📚 Ngăn xếp công nghệ
 
 ### Frontend
-- **Framework:** React 18 + Vite (build tool)
-- **State Management:** Zustand
-- **Routing:** React Router v6
-- **HTTP Client:** Axios
-- **Real-time Communication:** Socket.IO Client
-- **Styling:** CSS
+- **Framework:** React 18 + Vite (công cụ xây dựng)
+- **Quản lý trạng thái:** Zustand
+- **Định tuyến:** React Router v6
+- **Máy khách HTTP:** Axios
+- **Giao tiếp thời gian thực:** Socket.IO Client
+- **Tạo kiểu:** CSS
 
 ### Backend
-- **Runtime:** Node.js with ES6 modules
+- **Runtime:** Node.js với mô-đun ES6
 - **Framework:** Express.js
-- **Database:** DynamoDB (AWS) - replaced MongoDB
-- **Real-time:** Socket.IO
-- **Authentication:** JWT (jsonwebtoken)
-- **Password Hashing:** bcryptjs
-- **File Upload:** Multer + AWS S3
-- **Email Service:** AWS SES
-- **Caching/Sessions:** Redis (optional)
-- **Validation:** Joi
-- **ID Generation:** UUID v4
+- **Cơ sở dữ liệu:** DynamoDB (AWS) - thay thế MongoDB
+- **Thời gian thực:** Socket.IO
+- **Xác thực:** JWT (jsonwebtoken)
+- **Băm mật khẩu:** bcryptjs
+- **Tải tệp lên:** Multer + AWS S3
+- **Dịch vụ Email:** AWS SES
+- **Bộ nhớ đệm/Phiên:** Redis (tùy chọn)
+- **Xác thực:** Joi
+- **Tạo ID:** UUID v4
 
-### Infrastructure & Tools
-- **Build Tool:** Vite (frontend)
-- **Development Server:** Nodemon
+### Cơ sở hạ tầng & Công cụ
+- **Công cụ xây dựng:** Vite (frontend)
+- **Máy chủ phát triển:** Nodemon
 - **Linting:** ESLint
-- **Testing:** Jest (configured but not fully implemented)
-- **Cloud Services:** AWS (DynamoDB, S3, SES)
+- **Thử nghiệm:** Jest (được cấu hình nhưng chưa triển khai đầy đủ)
+- **Dịch vụ đám mây:** AWS (DynamoDB, S3, SES)
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Kiến trúc hệ thống
 
-### High-Level Architecture
+### Kiến trúc cao cấp
 ```
 ┌─────────────────────────────────────────────┐
-│         Frontend (React + Vite)              │
+│      Frontend (React + Vite)                 │
 │  ├─ Components (ChatWindow, Messages, etc)   │
 │  ├─ Pages (Chat, Auth, Profile)              │
 │  ├─ Hooks (useAuth, useChat, useSocket)      │
@@ -88,35 +182,35 @@
 └────────────────┬────────────────────────────┘
                  │
 ┌────────────────┴────────────────────────────┐
-│      Data Layer (DynamoDB + S3)              │
-│  ├─ DynamoDB (main database)                 │
-│  ├─ S3 (file/avatar storage)                 │
-│  ├─ SES (email service)                      │
-│  └─ Redis (optional caching)                 │
+│      Lớp dữ liệu (DynamoDB + S3)             │
+│  ├─ DynamoDB (cơ sở dữ liệu chính)           │
+│  ├─ S3 (lưu trữ tệp/avatar)                  │
+│  ├─ SES (dịch vụ email)                      │
+│  └─ Redis (bộ nhớ đệm tùy chọn)              │
 └─────────────────────────────────────────────┘
 ```
 
-### Design Patterns
+### Mô hình thiết kế
 
-#### 1. **Event-Driven Architecture**
-- Uses EventBus for decoupled services
-- Events: `USER_REGISTERED`, `MESSAGE_SENT`, `PASSWORD_RESET`, etc.
-- Advantages: Scalable, easy to add features, supports message queues
+#### 1. **Kiến trúc hướng sự kiện**
+- Sử dụng EventBus cho các dịch vụ không liên kết
+- Các sự kiện: `USER_REGISTERED`, `MESSAGE_SENT`, `PASSWORD_RESET`, v.v.
+- Ưu điểm: Có thể mở rộng, dễ thêm tính năng, hỗ trợ hàng đợi tin nhắn
 
-#### 2. **Service Layer Pattern**
-- **Controller** → HTTP request handler → Response
-- **Service** → Business logic, validation, events
-- **Model** → Database operations
-- Advantage: Testable, reusable, clean separation of concerns
+#### 2. **Mô hình lớp dịch vụ**
+- **Controller** → Trình xử lý yêu cầu HTTP → Phản hồi
+- **Service** → Logic kinh doanh, xác thực, sự kiện
+- **Model** → Các hoạt động cơ sở dữ liệu
+- Ưu điểm: Có thể kiểm tra, có thể tái sử dụng, tách biệt rõ ràng
 
-#### 3. **Repository Pattern** (Planned/Partial)
-- Abstracts database operations
-- Allows easy switching between databases
-- Current: Using DynamoDB directly in services/models
+#### 3. **Mô hình kho lưu trữ** (Được lên kế hoạch/Một phần)
+- Trừu tượng hóa các hoạt động cơ sở dữ liệu
+- Cho phép dễ dàng chuyển đổi giữa các cơ sở dữ liệu
+- Hiện tại: Sử dụng DynamoDB trực tiếp trong dịch vụ/mô hình
 
 ---
 
-## 📁 Project Structure
+## 📁 Cấu Trúc Dự Án
 
 ```
 TixChat/
@@ -265,27 +359,27 @@ TixChat/
 
 ---
 
-## 🗄️ Database Schema (DynamoDB)
+## 🗄️ Lược Đồ Cơ Sở Dữ Liệu (DynamoDB)
 
-### Main Tables
+### Các Bảng Chính
 
-#### 1. **Users** Table
-- **Partition Key:** `userId` (UUID)
-- **Sort Key:** None
+#### 1. Bảng **Người dùng** (Users)
+- **Khóa phân vùng:** `userId` (UUID)
+- **Sắp xếp khóa:** Không có
 - **Global Secondary Indexes (GSI):**
-  - `email-index` (query by email)
-  - `username-index` (query by username)
+  - `email-index` (truy vấn theo email)
+  - `username-index` (truy vấn theo tên đăng nhập)
 
-**Key Fields:**
+**Các trường chính:**
 ```javascript
 {
-  userId: "uuid",              // Primary key
-  email: "string",             // Unique
-  username: "string",          // Unique
-  password: "string",          // Hashed (bcrypt)
+  userId: "uuid",              // Khóa chính
+  email: "string",             // Duy nhất
+  username: "string",          // Duy nhất
+  password: "string",          // Được hash (bcrypt)
   fullName: "string",
-  avatar: "string",            // S3 URL
-  bio: "string",               // Max 500 chars
+  avatar: "string",            // URL S3
+  bio: "string",               // Tối đa 500 ký tự
   isOnline: boolean,
   lastSeen: "ISO string",
   friends: ["userId"],
@@ -298,21 +392,21 @@ TixChat/
 }
 ```
 
-#### 2. **Conversations** Table
-- **Partition Key:** `conversationId` (UUID)
-- **Sort Key:** None
+#### 2. Bảng **Cuộc trò chuyện** (Conversations)
+- **Khóa phân vùng:** `conversationId` (UUID)
+- **Sắp xếp khóa:** Không có
 
-**Key Fields:**
+**Các trường chính:**
 ```javascript
 {
-  conversationId: "uuid",      // Primary key
+  conversationId: "uuid",      // Khóa chính
   type: "private|group",
-  name: "string",              // For groups
-  avatar: "string",            // S3 URL
-  description: "string",       // For groups
-  creatorId: "userId",         // Creator
-  participants: ["userId"],    // Participant IDs
-  lastMessage: "string",       // Preview
+  name: "string",              // Cho nhóm
+  avatar: "string",            // URL S3
+  description: "string",       // Cho nhóm
+  creatorId: "userId",         // Người tạo
+  participants: ["userId"],    // ID những người tham gia
+  lastMessage: "string",       // Xem trước
   lastMessageAt: "ISO string",
   isArchived: boolean,
   createdAt: "ISO string",
@@ -320,23 +414,23 @@ TixChat/
 }
 ```
 
-#### 3. **Messages** Table
-- **Partition Key:** `conversationId` (UUID)
-- **Sort Key:** `messageId` (UUID) - allows multiple messages per conversation
-- **Global Secondary Index:** `senderId-index` (query messages by sender)
+#### 3. Bảng **Tin nhắn** (Messages)
+- **Khóa phân vùng:** `conversationId` (UUID)
+- **Sắp xếp khóa:** `messageId` (UUID) - cho phép nhiều tin nhắn trên mỗi cuộc trò chuyện
+- **Global Secondary Index:** `senderId-index` (truy vấn tin nhắn theo người gửi)
 
-**Key Fields:**
+**Các trường chính:**
 ```javascript
 {
-  conversationId: "uuid",      // Partition key
-  messageId: "uuid",           // Sort key
+  conversationId: "uuid",      // Khóa phân vùng
+  messageId: "uuid",           // Sắp xếp khóa
   senderId: "userId",
   content: "string",
   status: "sent|delivered|seen",
-  seenBy: ["userId"],          // Array of users who saw it
-  replyTo: "messageId",        // Optional reply-to message
-  attachments: ["url"],        // S3 URLs
-  emoji: ["emoji"],            // Emoji reactions
+  seenBy: ["userId"],          // Mảng những người đã xem
+  replyTo: "messageId",        // Trả lời tin nhắn tùy chọn
+  attachments: ["url"],        // URL S3
+  emoji: ["emoji"],            // Phản ứng emoji
   isEdited: boolean,
   editedAt: "ISO string",
   isDeleted: boolean,
@@ -346,20 +440,20 @@ TixChat/
 }
 ```
 
-#### 4. **Participants** Table
-- **Partition Key:** `conversationId` (UUID)
-- **Sort Key:** `userId` (UUID)
+#### 4. Bảng **Những người tham gia** (Participants)
+- **Khóa phân vùng:** `conversationId` (UUID)
+- **Sắp xếp khóa:** `userId` (UUID)
 
-**Key Fields:**
+**Các trường chính:**
 ```javascript
 {
-  conversationId: "uuid",      // Partition key
-  userId: "uuid",              // Sort key
+  conversationId: "uuid",      // Khóa phân vùng
+  userId: "uuid",              // Sắp xếp khóa
   role: "member|admin|owner",
   isMuted: boolean,
-  lastReadAt: "ISO string",    // Last time they read messages
+  lastReadAt: "ISO string",    // Lần cuối họ đọc tin nhắn
   joinedAt: "ISO string",
-  leftAt: "ISO string",        // If they left
+  leftAt: "ISO string",        // Nếu họ rời đi
   createdAt: "ISO string",
   updatedAt: "ISO string"
 }
@@ -367,225 +461,225 @@ TixChat/
 
 ---
 
-## 🔐 Authentication & Security
+## 🔐 Xác thực & Bảo mật
 
-### Authentication Flow
-1. **Register:** User creates account → Email verification OTP sent
-2. **Email Verification:** User enters OTP
-3. **Login:** Email + Password → JWT tokens (access + refresh)
-4. **Protected Requests:** Include `Authorization: Bearer <token>` header
-5. **Token Refresh:** Use refresh token to get new access token
+### Luồng xác thực
+1. **Đăng ký:** Người dùng tạo tài khoản → Gửi OTP xác minh email
+2. **Xác minh email:** Người dùng nhập OTP
+3. **Đăng nhập:** Email + Mật khẩu → JWT tokens (access + refresh)
+4. **Yêu cầu được bảo vệ:** Bao gồm `Authorization: Bearer <token>` header
+5. **Làm mới Token:** Sử dụng token làm mới để lấy token truy cập mới
 
-### Tokens
-- **Access Token:** Short-lived (15-30 min), included in Authorization header
-- **Refresh Token:** Long-lived (7 days), stored in secure cookies
-- **JWT Payload:** `{ userId, email, username, iat, exp }`
+### Mã thông báo (Tokens)
+- **Token truy cập:** Sống ngắn (15-30 phút), bao gồm trong Authorization header
+- **Token làm mới:** Sống lâu (7 ngày), được lưu trữ trong cookie an toàn
+- **Payload JWT:** `{ userId, email, username, iat, exp }`
 
-### Password Security
-- **Hashing:** bcryptjs with salt rounds = 10
-- **Storage:** Never store plain text, only hashed passwords
-- **Password Change:** Requires verification of current password
-- **Password Reset:** 3-step process with email verification
+### Bảo mật mật khẩu
+- **Băm:** bcryptjs với salt rounds = 10
+- **Lưu trữ:** Không bao giờ lưu trữ văn bản thuần túy, chỉ mật khẩu được hash
+- **Thay đổi mật khẩu:** Yêu cầu xác minh mật khẩu hiện tại
+- **Đặt lại mật khẩu:** Quy trình 3 bước với xác minh email
 
-### Email Verification
-- **OTP Method:** 6-digit OTP sent via AWS SES
-- **Expiration:** OTP valid for 15 minutes
-- **Required:** New users must verify email before full access
-
----
-
-## 🔌 Socket.IO Events
-
-### Real-Time Communication
-Socket.IO handles real-time updates without polling. Common events:
-
-#### Connection Events
-- `connect` - Client connects to server
-- `disconnect` - Client disconnects
-- `connect_error` - Connection error
-
-#### Conversation Events
-- `conversation:join` - Join conversation room
-- `conversation:leave` - Leave conversation room
-- `typing` - User is typing indicator
-- `stop_typing` - Stop typing indicator
-
-#### Message Events
-- `send_message` - Send new message
-- `message:delivered` - Message delivered to recipient
-- `message:seen` - Message seen by recipient
-- `message:edit` - Edit existing message
-- `message:delete` - Delete message
-- `message:reaction` - Add emoji reaction
-
-#### User Events
-- `user:online` - User came online
-- `user:offline` - User went offline
-- `user:typing` - User typing in conversation
-- `presence:update` - Update presence info
+### Xác minh email
+- **Phương pháp OTP:** OTP 6 chữ số được gửi qua AWS SES
+- **Hết hạn:** OTP hợp lệ trong 15 phút
+- **Bắt buộc:** Người dùng mới phải xác minh email trước khi truy cập đầy đủ
 
 ---
 
-## 📡 API Endpoints
+## 🔌 Các sự kiện Socket.IO
 
-### Authentication Routes (`/api/auth`)
-- `POST /register` - Register new user
-- `POST /login` - Login user
-- `POST /logout` - Logout user
-- `POST /refresh-token` - Refresh access token
-- `POST /verify-email` - Verify email with OTP
-- `POST /send-otp` - Resend OTP to email
-- `POST /forgot-password` - Start password reset
-- `POST /reset-password` - Complete password reset
-- `GET /me` - Get current user info
+### Giao tiếp Thời gian Thực
+Socket.IO xử lý các cập nhật thời gian thực mà không cần bỏ phiếu. Các sự kiện phổ biến:
 
-### User Routes (`/api/users`)
-- `GET /profile/current` - Get current user profile
-- `GET /profile/:userId` - Get user profile by ID
-- `PUT /profile` - Update user profile
-- `POST /password/change` - Change password
-- `POST /avatar` - Upload/update avatar
-- `GET /search` - Search users by username/email
-- `POST /friend-request` - Send friend request
-- `GET /friends` - Get user's friend list
-- `POST /block` - Block user
+#### Sự kiện Kết nối
+- `connect` - Máy khách kết nối với máy chủ
+- `disconnect` - Máy khách ngắt kết nối
+- `connect_error` - Lỗi kết nối
 
-### Conversation Routes (`/api/conversations`)
-- `GET /` - Get all conversations
-- `POST /` - Create new conversation
-- `GET /:conversationId` - Get conversation details
-- `PUT /:conversationId` - Update conversation
-- `DELETE /:conversationId` - Archive/delete conversation
-- `POST /:conversationId/participants` - Add participant to group
-- `DELETE /:conversationId/participants/:userId` - Remove participant
+#### Sự kiện Cuộc trò chuyện
+- `conversation:join` - Tham gia phòng cuộc trò chuyện
+- `conversation:leave` - Rời phòng cuộc trò chuyện
+- `typing` - Chỉ báo người dùng đang gõ
+- `stop_typing` - Dừng chỉ báo gõ
 
-### Message Routes (`/api/messages`)
-- `GET /conversation/:conversationId` - Get messages in conversation
-- `POST /` - Send message
-- `PUT /:messageId` - Edit message
-- `DELETE /:messageId` - Delete message
-- `POST /:messageId/reaction` - Add emoji reaction
-- `DELETE /:messageId/reaction` - Remove emoji reaction
+#### Sự kiện Tin nhắn
+- `send_message` - Gửi tin nhắn mới
+- `message:delivered` - Tin nhắn được gửi tới người nhận
+- `message:seen` - Tin nhắn được xem bởi người nhận
+- `message:edit` - Chỉnh sửa tin nhắn hiện có
+- `message:delete` - Xóa tin nhắn
+- `message:reaction` - Thêm phản ứng emoji
 
-### Email Routes (`/api/email`)
-- `POST /send-otp` - Send OTP to email
+#### Sự kiện Người dùng
+- `user:online` - Người dùng đã trực tuyến
+- `user:offline` - Người dùng đã ngoại tuyến
+- `user:typing` - Người dùng gõ trong cuộc trò chuyện
+- `presence:update` - Cập nhật thông tin hiện diện
 
 ---
 
-## 🎨 Frontend Components & Pages
+## 📡 Các điểm cuối API
 
-### Main Pages
-1. **AuthContainer** - Router for auth pages (Login/Register/Reset)
-2. **LoginPage** - User login with email/password
-3. **RegisterPage** - New user registration
-4. **ForgotPasswordPage** - Password recovery flow
-5. **VerifyEmailPage** - Email verification after registration
-6. **VerifyOTPPage** - OTP entry for various flows
-7. **ChatPage** - Main chat interface
-8. **ProfilePage** - User profile management
+### Các Tuyến Xác thực (`/api/auth`)
+- `POST /register` - Đăng ký người dùng mới
+- `POST /login` - Đăng nhập người dùng
+- `POST /logout` - Đăng xuất người dùng
+- `POST /refresh-token` - Làm mới token truy cập
+- `POST /verify-email` - Xác minh email với OTP
+- `POST /send-otp` - Gửi lại OTP sang email
+- `POST /forgot-password` - Bắt đầu đặt lại mật khẩu
+- `POST /reset-password` - Hoàn thành đặt lại mật khẩu
+- `GET /me` - Lấy thông tin người dùng hiện tại
 
-### Key Components
-1. **ChatWindow** - Main messaging interface
-2. **ConversationList** - List of active conversations
-3. **Message** - Individual message display with reactions
+### Các Tuyến Người dùng (`/api/users`)
+- `GET /profile/current` - Lấy hồ sơ người dùng hiện tại
+- `GET /profile/:userId` - Lấy hồ sơ người dùng theo ID
+- `PUT /profile` - Cập nhật hồ sơ người dùng
+- `POST /password/change` - Thay đổi mật khẩu
+- `POST /avatar` - Tải lên/cập nhật avatar
+- `GET /search` - Tìm kiếm người dùng theo tên đăng nhập/email
+- `POST /friend-request` - Gửi yêu cầu kết bạn
+- `GET /friends` - Lấy danh sách bạn của người dùng
+- `POST /block` - Chặn người dùng
 
-### State Management (Zustand)
-- **authStore** - User auth state, tokens, login/logout
-- **chatStore** - Conversations, messages, real-time updates
+### Các Tuyến Cuộc trò chuyện (`/api/conversations`)
+- `GET /` - Lấy tất cả cuộc trò chuyện
+- `POST /` - Tạo cuộc trò chuyện mới
+- `GET /:conversationId` - Lấy chi tiết cuộc trò chuyện
+- `PUT /:conversationId` - Cập nhật cuộc trò chuyện
+- `DELETE /:conversationId` - Lưu trữ/xóa cuộc trò chuyện
+- `POST /:conversationId/participants` - Thêm người tham gia vào nhóm
+- `DELETE /:conversationId/participants/:userId` - Xóa người tham gia
+
+### Các Tuyến Tin nhắn (`/api/messages`)
+- `GET /conversation/:conversationId` - Lấy tin nhắn trong cuộc trò chuyện
+- `POST /` - Gửi tin nhắn
+- `PUT /:messageId` - Chỉnh sửa tin nhắn
+- `DELETE /:messageId` - Xóa tin nhắn
+- `POST /:messageId/reaction` - Thêm phản ứng emoji
+- `DELETE /:messageId/reaction` - Xóa phản ứng emoji
+
+### Các Tuyến Email (`/api/email`)
+- `POST /send-otp` - Gửi OTP sang email
+
+---
+
+## 🎨 Các Thành phần & Trang Frontend
+
+### Các Trang Chính
+1. **AuthContainer** - Bộ định tuyến cho các trang xác thực (Đăng nhập/Đăng ký/Đặt lại)
+2. **LoginPage** - Đăng nhập người dùng bằng email/mật khẩu
+3. **RegisterPage** - Đăng ký người dùng mới
+4. **ForgotPasswordPage** - Luồng phục hồi mật khẩu
+5. **VerifyEmailPage** - Xác minh email sau khi đăng ký
+6. **VerifyOTPPage** - Nhập OTP cho các luồng khác nhau
+7. **ChatPage** - Giao diện nhắn tin chính
+8. **ProfilePage** - Quản lý hồ sơ người dùng
+
+### Các Thành phần Chính
+1. **ChatWindow** - Giao diện nhắn tin chính
+2. **ConversationList** - Danh sách các cuộc trò chuyện hoạt động
+3. **Message** - Hiển thị tin nhắn riêng lẻ với phản ứng
+
+### Quản lý Trạng thái (Zustand)
+- **authStore** - Trạng thái xác thực người dùng, tokens, đăng nhập/đăng xuất
+- **chatStore** - Cuộc trò chuyện, tin nhắn, cập nhật thời gian thực
 
 ### Custom Hooks
-- **useAuth** - Auth operations (login, register, logout)
-- **useChat** - Chat operations (get conversations, send messages)
-- **useSocket** - Socket.IO connection and event handling
+- **useAuth** - Các hoạt động xác thực (đăng nhập, đăng ký, đăng xuất)
+- **useChat** - Các hoạt động trò chuyện (lấy cuộc trò chuyện, gửi tin nhắn)
+- **useSocket** - Kết nối Socket.IO và xử lý sự kiện
 
 ---
 
-## ⚡ Key Features Explained
+## ⚡ Các Tính năng Chính được Giải thích
 
-### 1. Real-Time Messaging
-- Uses Socket.IO for instant message delivery
-- No polling needed
-- Message status: sent → delivered → seen
-- Typing indicators
+### 1. Nhắn tin Thời gian Thực
+- Sử dụng Socket.IO để gửi tin nhắn tức thì
+- Không cần bỏ phiếu
+- Trạng thái tin nhắn: đã gửi → đã gửi → đã xem
+- Chỉ báo gõ
 
-### 2. User Profile
-- Avatar upload to AWS S3
-- Bio/status
-- Online status with last seen timestamp
-- Profile visibility (public/private)
+### 2. Hồ sơ Người dùng
+- Tải lên avatar lên AWS S3
+- Bio/trạng thái
+- Trạng thái trực tuyến với dấu thời gian lần cuối xem
+- Khả năng hiển thị hồ sơ (công khai/riêng tư)
 
-### 3. Conversation Types
-- **Private (1-on-1):** Direct chat between two users
-- **Group:** Multiple users with admin/member roles
+### 3. Các loại Cuộc trò chuyện
+- **Riêng tư (1-trên-1):** Trò chuyện trực tiếp giữa hai người dùng
+- **Nhóm:** Nhiều người dùng với vai trò quản trị viên/thành viên
 
-### 4. Message Features
-- **Edit:** Modify message content (shows "edited" marker)
-- **Delete:** Remove message from conversation
-- **Reply:** Quote previous message
-- **Emoji Reactions:** React to messages with emojis
-- **Attachments:** Share files/images (via S3)
-- **Delivery Status:** Track message flow
+### 4. Các Tính năng Tin nhắn
+- **Chỉnh sửa:** Sửa nội dung tin nhắn (hiển thị dấu "đã chỉnh sửa")
+- **Xóa:** Loại bỏ tin nhắn khỏi cuộc trò chuyện
+- **Trả lời:** Trích dẫn tin nhắn trước đó
+- **Phản ứng Emoji:** Phản ứng tin nhắn bằng emoji
+- **Tệp đính kèm:** Chia sẻ tệp/hình ảnh (qua S3)
+- **Trạng thái gửi:** Theo dõi luồng tin nhắn
 
-### 5. Security Features
-- JWT-based authentication
-- Password hashing with bcryptjs
-- Email verification with OTP
-- CORS protection
-- Rate limiting (can be added)
-- Input validation with Joi
+### 5. Các Tính năng Bảo mật
+- Xác thực dựa trên JWT
+- Băm mật khẩu với bcryptjs
+- Xác minh email với OTP
+- Bảo vệ CORS
+- Giới hạn tốc độ (có thể được thêm)
+- Xác thực đầu vào với Joi
 
 ---
 
-## 🚀 Backend Services Overview
+## 🚀 Tổng quan về Các Dịch vụ Backend
 
 ### AuthService
-- Register user → Validate → Hash password → Create user
-- Login → Verify password → Generate tokens
-- Token refresh → Validate refresh token → New access token
-- Password reset → Email verification → Hash new password
-- Emit events: `USER_REGISTERED`, `PASSWORD_RESET`
+- Đăng ký người dùng → Xác thực → Băm mật khẩu → Tạo người dùng
+- Đăng nhập → Xác minh mật khẩu → Tạo tokens
+- Làm mới token → Xác thực token làm mới → Token truy cập mới
+- Đặt lại mật khẩu → Xác minh email → Băm mật khẩu mới
+- Phát sự kiện: `USER_REGISTERED`, `PASSWORD_RESET`
 
 ### UserService
-- Get user profile
-- Update profile (name, bio, etc)
-- Change password → Verify old password → Hash new
-- Update avatar → Upload to S3 → Delete old → Store URL
-- Get user by ID/username/email
+- Lấy hồ sơ người dùng
+- Cập nhật hồ sơ (tên, bio, v.v.)
+- Thay đổi mật khẩu → Xác minh mật khẩu cũ → Băm mật khẩu mới
+- Cập nhật avatar → Tải lên S3 → Xóa cũ → Lưu URL
+- Lấy người dùng theo ID/tên đăng nhập/email
 
 ### ConversationService
-- Create conversation (1-on-1 or group)
-- Get user's conversations (paginated)
-- Add/remove participants
-- Update conversation details
-- Archive/delete conversation
-- Get last messages for preview
+- Tạo cuộc trò chuyện (1-trên-1 hoặc nhóm)
+- Lấy cuộc trò chuyện của người dùng (phân trang)
+- Thêm/xóa những người tham gia
+- Cập nhật chi tiết cuộc trò chuyện
+- Lưu trữ/xóa cuộc trò chuyện
+- Lấy tin nhắn cuối cùng cho xem trước
 
 ### MessageService
-- Send message → Validate → Create → Emit event
-- Get messages for conversation (paginated)
-- Edit message → Update → Emit event
-- Delete message → Mark as deleted
-- Add emoji reaction → Update array
-- Mark as seen/delivered
+- Gửi tin nhắn → Xác thực → Tạo → Phát sự kiện
+- Lấy tin nhắn cho cuộc trò chuyện (phân trang)
+- Chỉnh sửa tin nhắn → Cập nhật → Phát sự kiện
+- Xóa tin nhắn → Đánh dấu là đã xóa
+- Thêm phản ứng emoji → Cập nhật mảng
+- Đánh dấu là đã xem/gửi
 
 ### EmailService
-- Send email via AWS SES
-- OTP generation (6-digit random)
-- Email verification flow
-- Password reset email with link
-- Welcome email on registration
+- Gửi email qua AWS SES
+- Tạo OTP (6 chữ số ngẫu nhiên)
+- Luồng xác minh email
+- Email đặt lại mật khẩu với liên kết
+- Email chào mừng khi đăng ký
 
 ### S3Service
-- Upload avatar → Validate file → Upload → Return URL
-- Delete avatar → Remove from S3
-- Replace avatar → Delete old → Upload new
-- Handle MIME types for images
+- Tải lên avatar → Xác thực tệp → Tải lên → Trả lại URL
+- Xóa avatar → Loại bỏ khỏi S3
+- Thay thế avatar → Xóa cũ → Tải lên mới
+- Xử lý MIME types cho hình ảnh
 
 ---
 
-## 🔄 Data Flow Examples
+## 🔄 Ví dụ Luồng Dữ liệu
 
-### Message Sending Flow
+### Luồng Gửi Tin nhắn
 ```
 Frontend (ChatPage)
     ↓
@@ -595,18 +689,18 @@ Backend (socket handler)
     ↓
 MessageService.sendMessage(conversationId, senderId, content)
     ↓
-Create Message in DynamoDB
+Tạo Tin nhắn trong DynamoDB
     ↓
-Emit MESSAGE_EVENTS.SENT event
+Phát sự kiện MESSAGE_EVENTS.SENT
     ↓
-EventBus listener broadcasts to Socket.IO room
+Trình nghe EventBus phát sóng tới phòng Socket.IO
     ↓
 io.to(`conversation:${conversationId}`).emit('message:new', messageData)
     ↓
-All connected clients receive message in real-time
+Tất cả máy khách được kết nối nhận tin nhắn thời gian thực
 ```
 
-### Login Flow
+### Luồng Đăng nhập
 ```
 Frontend (LoginPage)
     ↓
@@ -615,47 +709,47 @@ api.post('/auth/login', { email, password })
 AuthController.login()
     ↓
 AuthService.login()
-    ├─ Find user by email
-    ├─ Compare password with bcrypt
-    ├─ Generate access & refresh tokens
-    └─ Emit USER_LOGGED_IN event
+    ├─ Tìm người dùng theo email
+    ├─ So sánh mật khẩu với bcrypt
+    ├─ Tạo access & refresh tokens
+    └─ Phát sự kiện USER_LOGGED_IN
     ↓
-Return { user, accessToken, refreshToken }
+Trả về { user, accessToken, refreshToken }
     ↓
-Frontend stores tokens in localStorage/Zustand
+Frontend lưu trữ tokens trong localStorage/Zustand
     ↓
-Include accessToken in future requests
+Bao gồm accessToken trong các yêu cầu trong tương lai
 ```
 
-### File Upload Flow
+### Luồng Tải lên Tệp
 ```
 Frontend (ProfilePage)
     ↓
-Form data with file + axios POST to /api/users/avatar
+Dữ liệu biểu mẫu với tệp + axios POST tới /api/users/avatar
     ↓
-Multer middleware processes file (in-memory)
+Middleware Multer xử lý tệp (trong bộ nhớ)
     ↓
 UserController.updateAvatar()
     ↓
 S3Service.replaceAvatar()
-    ├─ Upload file to S3 → Get URL
-    ├─ Delete old avatar from S3 (if exists)
-    └─ Store new S3 URL in User model
+    ├─ Tải lên tệp lên S3 → Nhận URL
+    ├─ Xóa avatar cũ khỏi S3 (nếu tồn tại)
+    └─ Lưu trữ URL S3 mới trong mô hình User
     ↓
-Update user in DynamoDB
+Cập nhật người dùng trong DynamoDB
     ↓
-Return { user, avatarUrl }
+Trả về { user, avatarUrl }
     ↓
-Frontend updates user state
+Frontend cập nhật trạng thái người dùng
 ```
 
 ---
 
-## 🔧 Development & Configuration
+## 🔧 Phát triển & Cấu hình
 
-### Environment Variables (Backend .env)
+### Các biến môi trường (Backend .env)
 ```
-# Server
+# Máy chủ
 PORT=5000
 NODE_ENV=development
 
@@ -683,7 +777,7 @@ S3_AVATAR_FOLDER=avatars
 SES_REGION=us-east-1
 SES_FROM_EMAIL=noreply@tixchat.com
 
-# Redis (Optional)
+# Redis (Tùy chọn)
 REDIS_URL=redis://localhost:6379
 
 # CORS
@@ -694,7 +788,7 @@ OTP_EXPIRY=15m
 OTP_LENGTH=6
 ```
 
-### Environment Variables (Frontend .env)
+### Các biến môi trường (Frontend .env)
 ```
 VITE_API_URL=http://localhost:5000/api
 VITE_SOCKET_URL=http://localhost:5000
@@ -702,292 +796,309 @@ VITE_SOCKET_URL=http://localhost:5000
 
 ---
 
-## 🚀 Setup & Running
+## 🚀 Thiết lập & Chạy
 
-### Backend Setup
+### Thiết lập Backend
 ```bash
 cd backend
 npm install
-# Create .env file with variables above
-npm run dev  # Development with Nodemon
-# or
-npm start    # Production
+# Tạo tệp .env với các biến ở trên
+npm run dev  # Phát triển với Nodemon
+# hoặc
+npm start    # Sản xuất
 ```
 
-### Frontend Setup
+### Thiết lập Frontend
 ```bash
 cd frontend
 npm install
-npm run dev  # Development with Vite hot reload
-# or
-npm run build  # Production build
+npm run dev  # Phát triển với Vite hot reload
+# hoặc
+npm run build  # Xây dựng sản xuất
 npm run preview
 ```
 
-### Database Setup (First Time)
+### Thiết lập Cơ sở dữ liệu (Lần đầu)
 ```bash
 cd backend
-npm run setup:dynamodb   # Create tables
-npm run setup:indexes    # Create indexes
+npm run setup:dynamodb   # Tạo bảng
+npm run setup:indexes    # Tạo chỉ mục
 ```
 
 ---
 
-## 📊 Recent Updates & Status
+## 📊 Các cập nhật gần đây & Trạng thái
 
-### Version 1.0.0 Features
-- ✅ Authentication (Register, Login, JWT)
-- ✅ User Profiles with S3 Avatar Upload
-- ✅ Conversations (1-on-1 & Groups)
-- ✅ Real-time Messaging with Socket.IO
-- ✅ Message Features (Edit, Delete, Reply, Reactions)
-- ✅ Email Verification with OTP
-- ✅ Password Reset & Change
-- ✅ Online Status Tracking
-- ✅ DynamoDB Migration (from MongoDB)
+### Các tính năng phiên bản 1.0.0
+- ✅ Xác thực (Đăng ký, Đăng nhập, JWT)
+- ✅ Hồ sơ người dùng với tải lên avatar S3
+- ✅ Cuộc trò chuyện (1-trên-1 & Nhóm)
+- ✅ Nhắn tin thời gian thực với Socket.IO
+- ✅ Các tính năng tin nhắn (Chỉnh sửa, Xóa, Trả lời, Phản ứng)
+- ✅ Xác minh email với OTP
+- ✅ Đặt lại mật khẩu & Thay đổi
+- ✅ Theo dõi trạng thái trực tuyến
+- ✅ Migration DynamoDB (từ MongoDB)
 
-### Planned Features
-- 🔄 Voice/Video Calls (Jitsi integration or similar)
-- 🔄 Typing Indicators (via Socket.IO)
-- 🔄 Message Search
-- 🔄 File Sharing (documents)
-- 🔄 User Blocking
-- 🔄 Admin Panel
-- 🔄 User Analytics
+### Cải tiến phiên bản 1.1.0 (Hiện tại)
+- ✅ Đã sửa các truy vấn bảng DynamoDB Participant GSI
+- ✅ Đã sửa lấy cuộc trò chuyện và phát hiện trùng lặp
+- ✅ Xử lý lỗi frontend với ErrorBoundary
+- ✅ Chuẩn hóa tên trường cuộc trò chuyện/tin nhắn (_id/conversationId, userId/senderId)
+- ✅ Cải thiện phân trang tin nhắn và tải
+- ✅ Các thông báo lỗi và ghi nhật ký tốt hơn
+- ✅ Các bản sửa chữa prop key tin nhắn và kết xuất
 
-### Known Issues & TODOs
-- [ ] Implement pagination for messages/conversations
-- [ ] Add rate limiting for API endpoints
-- [ ] Add message encryption at rest
-- [ ] Implement end-to-end encryption
-- [ ] Add comprehensive error handling for network failures
-- [ ] Implement offline mode with local caching
-- [ ] Add push notifications
+### Các tính năng được lên kế hoạch (Phiên bản 2.0+)
+- 🔄 Cuộc gọi thoại/video (tích hợp Jitsi hoặc tương tự)
+- 🔄 Chỉ báo nhập liệu nâng cao và sự hiện diện
+- 🔄 Tìm kiếm toàn văn bản tin nhắn với bộ lọc
+- 🔄 Chia sẻ tệp (tài liệu, hình ảnh trong thư mục)
+- 🔄 Quản lý danh sách chặn người dùng
+- 🔄 Cài đặt âm thanh/thông báo trò chuyện nhóm
+- 🔄 Bảng điều khiển quản trị viên để quản lý người dùng
+- 🔄 Phân tích người dùng và nhật ký hoạt động
+- 🔄 Mã hóa tin nhắn khi lưu (AES-256)
+- 🔄 Mã hóa đầu cuối (Signal Protocol)
+- 🔄 Hàng đợi tin nhắn ngoại tuyến và đồng bộ
+- 🔄 Thông báo đẩy (di động & web)
+- 🔄 Biên lai đọc tin nhắn với dấu thời gian
+- 🔄 Trạng thái sẵn có/bận của người dùng
+- 🔄 Lịch sử và nhật ký cuộc gọi
+
+### Các vấn đề đã biết & Danh sách TODO
+- [ ] Triển khai phân trang cho tin nhắn/cuộc trò chuyện
+- [ ] Thêm giới hạn tốc độ cho các điểm cuối API
+- [ ] Thêm mã hóa tin nhắn khi lưu
+- [ ] Triển khai mã hóa đầu cuối
+- [ ] Thêm xử lý lỗi toàn diện cho các lỗi mạng
+- [ ] Triển khai chế độ ngoại tuyến với bộ nhớ đệm cục bộ
+- [ ] Thêm thông báo đẩy
 
 ---
 
-## 🧪 Testing
+## 🧪 Thử nghiệm
 
-### Currently Configured But Not Implemented
-- Jest test framework installed
-- Unit tests for services recommended
-- Integration tests for API endpoints recommended
-- E2E tests for critical flows
+### Hiện được cấu hình nhưng chưa triển khai
+- Khung thử nghiệm Jest được cài đặt
+- Các bài kiểm tra đơn vị cho các dịch vụ được khuyến khích
+- Các bài kiểm tra tích hợp cho các điểm cuối API được khuyến khích
+- Các bài kiểm tra E2E cho các luồng quan trọng được khuyến khích
 
-### Running Tests
+### Chạy các bài kiểm tra
 ```bash
-npm test                    # Run all tests
-npm test -- --coverage     # With coverage report
-npm test -- --watch        # Watch mode
+npm test                    # Chạy tất cả các bài kiểm tra
+npm test -- --coverage     # Với báo cáo bao phủ
+npm test -- --watch        # Chế độ xem
 ```
 
 ---
 
-## 📝 Documentation Files Reference
+## 📝 Tham chiếu các tệp tài liệu
 
-| Document | Purpose |
+| Tài liệu | Mục đích |
 |----------|---------|
-| `SETUP.md` | Installation and first-run setup |
-| `ARCHITECTURE.md` | Detailed architecture and design patterns |
-| `DATABASE_MODEL.md` | DynamoDB schema and relationships |
-| `API.md` | Complete API endpoint documentation |
-| `SOCKET_EVENTS.md` | Socket.IO events reference |
-| `AUTH_SUMMARY.md` | Authentication system details |
-| `PROFILE_FEATURES_SUMMARY.md` | User profile features |
-| `DATABASE_UPGRADE_ANALYSIS.md` | MongoDB → DynamoDB migration |
-| `TESTING_GUIDE.md` | Testing procedures and examples |
-| `EMAIL_OTP_API.md` | Email and OTP flow documentation |
+| `SETUP.md` | Cài đặt và thiết lập lần đầu |
+| `ARCHITECTURE.md` | Kiến trúc chi tiết và mô hình thiết kế |
+| `DATABASE_MODEL.md` | Lược đồ DynamoDB và mối quan hệ |
+| `API.md` | Tài liệu điểm cuối API hoàn chỉnh |
+| `SOCKET_EVENTS.md` | Tham chiếu sự kiện Socket.IO |
+| `AUTH_SUMMARY.md` | Chi tiết hệ thống xác thực |
+| `PROFILE_FEATURES_SUMMARY.md` | Các tính năng hồ sơ người dùng |
+| `DATABASE_UPGRADE_ANALYSIS.md` | Migration MongoDB → DynamoDB |
+| `TESTING_GUIDE.md` | Các thủ tục thử nghiệm và ví dụ |
+| `EMAIL_OTP_API.md` | Tài liệu luồng email và OTP |
 
 ---
 
-## 💡 Common Development Tasks
+## 💡 Các tác vụ phát triển phổ biến
 
-### Adding a New API Endpoint
-1. Create route in `routes/example.js`
-2. Create controller method in `controllers/ExampleController.js`
-3. Create service method in `services/ExampleService.js`
-4. Add validation schema in `utils/validation.js`
-5. Mount route in `server.js`
-6. Document in `docs/API.md`
+### Thêm một điểm cuối API mới
+1. Tạo tuyến trong `routes/example.js`
+2. Tạo phương thức bộ điều khiển trong `controllers/ExampleController.js`
+3. Tạo phương thức dịch vụ trong `services/ExampleService.js`
+4. Thêm lược đồ xác thực trong `utils/validation.js`
+5. Gắn kèn tuyến trong `server.js`
+6. Tài liệu trong `docs/API.md`
 
-### Adding Real-Time Event
-1. Define event type in `events/EventTypes.js`
-2. Emit event in service: `exampleEvents.emit(EVENT_TYPE, data)`
-3. Listen in `socket/handlers.js`
-4. Broadcast to clients with `socket.emit()` or `io.to(room).emit()`
+### Thêm sự kiện thời gian thực
+1. Xác định loại sự kiện trong `events/EventTypes.js`
+2. Phát sự kiện trong dịch vụ: `exampleEvents.emit(EVENT_TYPE, data)`
+3. Lắng nghe trong `socket/handlers.js`
+4. Phát sóng đến máy khách với `socket.emit()` hoặc `io.to(room).emit()`
 
-### Adding Database Query
-1. Create model method in `models/Example.js`
-2. Use repository pattern: `ExampleRepository.findById()`
-3. Call from service, handle errors
-4. Cache if applicable using Redis
+### Thêm truy vấn cơ sở dữ liệu
+1. Tạo phương thức mô hình trong `models/Example.js`
+2. Sử dụng mô hình kho lưu trữ: `ExampleRepository.findById()`
+3. Gọi từ dịch vụ, xử lý lỗi
+4. Bộ nhớ đệm nếu có thể sử dụng Redis
 
-### Frontend Component Flow
-1. Create component file in `components/` or `pages/`
-2. Create custom hook in `hooks/` if needed
-3. Connect to Zustand store or use API service
-4. Add styling to `styles/`
-5. Import and use in parent component
-
----
-
-## 🎓 Key Learning Points for Developers
-
-### Backend Concepts Used
-1. **Event-Driven Architecture** - Decoupled services via events
-2. **Service Layer** - Separation of business logic
-3. **Repository Pattern** - Abstract database operations
-4. **JWT Authentication** - Token-based security
-5. **Socket.IO** - Real-time bidirectional communication
-6. **DynamoDB** - NoSQL database with GSI for queries
-7. **AWS S3** - File storage and retrieval
-8. **Error Handling** - Middleware for consistent error responses
-
-### Frontend Concepts Used
-1. **React Hooks** - State and side effects
-2. **Zustand** - Simple state management alternative to Redux
-3. **Socket.IO Client** - Real-time event handling
-4. **Axios** - HTTP client with interceptors
-5. **Vite** - Fast build tool and dev server
-6. **Component Composition** - Reusable, modular components
+### Luồng thành phần Frontend
+1. Tạo tệp thành phần trong `components/` hoặc `pages/`
+2. Tạo hook tùy chỉnh trong `hooks/` nếu cần
+3. Kết nối với cửa hàng Zustand hoặc sử dụng dịch vụ API
+4. Thêm kiểu dáng vào `styles/`
+5. Nhập và sử dụng trong thành phần cha
 
 ---
 
-## 🤝 Contributing
+## 🎓 Các điểm học tập chính cho nhà phát triển
 
-### Code Style
-- Use ES6+ features
-- Follow ESLint rules
-- Use meaningful variable/function names
-- Add comments for complex logic
-- Keep functions small and focused
+### Các khái niệm Backend được sử dụng
+1. **Kiến trúc hướng sự kiện** - Các dịch vụ không liên kết qua các sự kiện
+2. **Lớp dịch vụ** - Tách biệt logic kinh doanh
+3. **Mô hình kho lưu trữ** - Các hoạt động cơ sở dữ liệu trừu tượng
+4. **Xác thực JWT** - Bảo mật dựa trên mã thông báo
+5. **Socket.IO** - Giao tiếp hai chiều thời gian thực
+6. **DynamoDB** - Cơ sở dữ liệu NoSQL với GSI cho các truy vấn
+7. **AWS S3** - Lưu trữ và truy xuất tệp
+8. **Xử lý lỗi** - Middleware cho các phản hồi lỗi nhất quán
 
-### Git Workflow
-1. Create feature branch: `git checkout -b feature/feature-name`
-2. Make changes and test
-3. Commit with clear messages: `git commit -m "feat: add feature description"`
-4. Push to branch: `git push origin feature/feature-name`
-5. Create Pull Request
+### Các khái niệm Frontend được sử dụng
+1. **React Hooks** - Trạng thái và tác dụng phụ
+2. **Zustand** - Thay thế quản lý trạng thái đơn giản cho Redux
+3. **Socket.IO Client** - Xử lý sự kiện thời gian thực
+4. **Axios** - Máy khách HTTP có bộ đánh chặn
+5. **Vite** - Công cụ xây dựng nhanh và máy chủ phát triển
+6. **Thành phần Composition** - Các thành phần có thể tái sử dụng, mô-đun
 
 ---
 
-## 📞 Support & Resources
+## 🤝 Đóng góp
 
-### Documentation
-- All documentation in `docs/` folder
-- Architecture decisions documented
-- API examples provided
+### Phong cách mã
+- Sử dụng các tính năng ES6+
+- Tuân thủ các quy tắc ESLint
+- Sử dụng các tên biến/hàm có ý nghĩa
+- Thêm nhận xét cho logic phức tạp
+- Giữ các hàm nhỏ và tập trung
 
-### Common Issues
-- Check `.env` file is configured correctly
-- Ensure DynamoDB is running/accessible
-- Verify JWT secret is set
-- Check AWS credentials for S3/SES/DynamoDB
+### Quy trình Git
+1. Tạo nhánh tính năng: `git checkout -b feature/feature-name`
+2. Thực hiện các thay đổi và kiểm tra
+3. Cam kết với các thông báo rõ ràng: `git commit -m "feat: add feature description"`
+4. Đẩy vào nhánh: `git push origin feature/feature-name`
+5. Tạo Yêu cầu kéo
 
-### Known Issues & Fixes
+---
 
-#### Issue: "Failed to get conversation participants: Query condition missed key schema element: participantId"
-**Root Cause:** DynamoDB Participants table has `participantId` as primary key (HASH), but repository was trying to query with `conversationId + userId` as composite key without using GSI.
+## 📞 Hỗ trợ & Tài nguyên
 
-**Solution Applied (ParticipantRepository.js):**
-1. Added `participantId` generation in `create()` method using UUID
-2. Updated `findById()` to use `conversationId-userId-index` GSI for lookups
-3. Updated `findByConversationId()` to use GSI instead of primary key query
-4. Fixed all UpdateCommand and DeleteCommand calls to use `participantId` from fetched participant first
-5. Updated `getParticipantCount()` and `getAdmins()` to use GSI
+### Tài liệu
+- Tất cả tài liệu trong thư mục `docs/`
+- Các quyết định kiến trúc được tài liệu hóa
+- Các ví dụ API được cung cấp
 
-**Key Changes:**
-- `findById(conversationId, userId)` → Uses GSI `conversationId-userId-index`
-- `create()` → Now generates `participantId` as primary key
-- `updateRole()`, `markAsLeft()`, `delete()` → Fetch participant first to get `participantId`
+### Vấn đề phổ biến
+- Kiểm tra tệp `.env` được cấu hình đúng
+- Đảm bảo DynamoDB đang chạy/có thể truy cập
+- Xác minh JWT secret được đặt
+- Kiểm tra thông tin xác thực AWS cho S3/SES/DynamoDB
 
-**Database Schema Reference:**
-- Primary Key: `participantId` (HASH)
+### Vấn đề đã biết & Bản sửa chữa
+
+#### Vấn đề: "Lỗi không thể lấy người tham gia cuộc trò chuyện: Query condition missed key schema element: participantId"
+**Nguyên nhân gốc:** Bảng Participants DynamoDB có `participantId` làm khóa chính (HASH), nhưng kho lưu trữ đã cố gắng truy vấn với `conversationId + userId` làm khóa tổng hợp mà không sử dụng GSI.
+
+**Giải pháp được áp dụng (ParticipantRepository.js):**
+1. Thêm tạo `participantId` trong phương thức `create()` bằng UUID
+2. Cập nhật `findById()` để sử dụng GSI `conversationId-userId-index`
+3. Cập nhật `findByConversationId()` để sử dụng GSI thay vì truy vấn khóa chính
+4. Sửa tất cả các lệnh UpdateCommand và DeleteCommand để sử dụng `participantId` được tìm nạp trước tiên
+5. Cập nhật `getParticipantCount()` và `getAdmins()` để sử dụng GSI
+
+**Các thay đổi chính:**
+- `findById(conversationId, userId)` → Sử dụng GSI `conversationId-userId-index`
+- `create()` → Bây giờ tạo `participantId` làm khóa chính
+- `updateRole()`, `markAsLeft()`, `delete()` → Tìm nạp người tham gia trước tiên để lấy `participantId`
+
+**Tham chiếu lược đồ cơ sở dữ liệu:**
+- Khóa chính: `participantId` (HASH)
 - GSI: `conversationId-userId-index` (HASH: conversationId, RANGE: userId)
 - GSI: `userId-index` (HASH: userId)
 
 ---
 
-#### Issue: "Conversation not found"
-**Root Cause:** `ConversationRepository.getByCreator()` was trying to use non-existent index `creatorId-index`, causing failed queries and missing conversations.
+#### Vấn đề: "Không tìm thấy cuộc trò chuyện"
+**Nguyên nhân gốc:** `ConversationRepository.getByCreator()` đã cố gắng sử dụng chỉ mục không tồn tại `creatorId-index`, gây ra các truy vấn không thành công và thiếu cuộc trò chuyện.
 
-**Solution Applied:**
+**Giải pháp được áp dụng:**
 
 1. **ConversationRepository.js:**
-   - Removed dependency on non-existent `creatorId-index`
-   - `getByCreator()` now uses SCAN with FilterExpression instead of query
-   - Added new method `getByParticipant()` to query conversations using `participants-index` GSI
+   - Loại bỏ sự phụ thuộc vào `creatorId-index` không tồn tại
+   - `getByCreator()` bây giờ sử dụng SCAN với FilterExpression thay vì truy vấn
+   - Thêm phương thức mới `getByParticipant()` để truy vấn các cuộc trò chuyện bằng cách sử dụng `participants-index` GSI
 
 2. **ConversationService.js:**
-   - Enhanced `getUserConversations()` with error handling and fallback logic
-   - Added try-catch to handle missing conversations gracefully
-   - If main query fails, attempts to fetch conversation directly
-   - Improved `getConversationById()` with better error messages
-   - Added detailed logging for debugging
+   - Nâng cao `getUserConversations()` với xử lý lỗi và logic dự phòng
+   - Thêm try-catch để xử lý các cuộc trò chuyện bị thiếu một cách nhạy cảm
+   - Nếu truy vấn chính không thành công, sẽ cố gắng tìm nạp cuộc trò chuyện trực tiếp
+   - Cải thiện `getConversationById()` với các thông báo lỗi tốt hơn
+   - Thêm ghi nhật ký chi tiết để gỡ lỗi
 
-3. **Updated indexes (setupIndexes.js):**
-   - `tixchat-conversations`: Only `participants-index` (HASH: participants)
+3. **Các chỉ mục được cập nhật (setupIndexes.js):**
+   - `tixchat-conversations`: Chỉ `participants-index` (HASH: participants)
    - `tixchat-participants`: `conversationId-index`, `conversationId-userId-index`, `userId-index`
    - `tixchat-users`: `email-index`, `username-index`
 
-**Key Changes:**
-- `getByCreator()` → Uses SCAN + FilterExpression (since no creatorId-index)
-- `getUserConversations()` → Now handles missing conversations gracefully
-- Better error messages for debugging
-- Added logging for failed conversation fetches
+**Các thay đổi chính:**
+- `getByCreator()` → Sử dụng SCAN + FilterExpression (vì không có creatorId-index)
+- `getUserConversations()` → Bây giờ xử lý các cuộc trò chuyện bị thiếu một cách nhạy cảm
+- Các thông báo lỗi tốt hơn để gỡ lỗi
+- Thêm ghi nhật ký cho các lần tìm nạp cuộc trò chuyện không thành công
 
 ---
 
-#### Issue: "Conversation with ID undefined not found" + "Each child in a list should have a unique 'key' prop"
-**Root Cause:** 
-1. Frontend sử dụng `_id` nhưng backend trả về `conversationId` 
-2. `key={conv._id}` undefined trong ConversationList → lỗi React warning
-3. `openConversation(conversation._id)` nhận undefined → query API với undefined
+#### Vấn đề: "Không tìm thấy cuộc trò chuyện với ID undefined" + "Mỗi thành phần con trong danh sách phải có prop 'key' duy nhất"
+**Nguyên nhân gốc:**
+1. Frontend sử dụng `_id` nhưng backend trả về `conversationId`
+2. `key={conv._id}` undefined trong ConversationList → cảnh báo React
+3. `openConversation(conversation._id)` nhận undefined → truy vấn API với undefined
 
-**Solution Applied:**
+**Giải pháp được áp dụng:**
 
 1. **Backend (ConversationController.js):**
-   - Thêm helper function `normalizeConversation()` để thêm `_id` alias cho frontend
-   - Tất cả response methods sử dụng `normalizeConversation()` hoặc `normalizeConversations()`
-   - Giữ `conversationId` trong database nhưng response có cả `_id` để frontend sử dụng
+   - Thêm hàm trợ giúp `normalizeConversation()` để thêm bí danh `_id` cho frontend
+   - Tất cả các phương thức phản hồi sử dụng `normalizeConversation()` hoặc `normalizeConversations()`
+   - Giữ `conversationId` trong cơ sở dữ liệu nhưng phản hồi có cả `_id` để frontend sử dụng
 
 2. **Frontend (ConversationList.jsx):**
    - Sửa `key={conv._id}` → `key={conv._id || conv.conversationId}`
-   - Đảm bảo key luôn có value valid
+   - Đảm bảo key luôn có giá trị hợp lệ
 
 3. **Frontend (ChatPage.jsx):**
    - Sửa `handleSelectConversation()` → `conversation._id || conversation.conversationId`
 
 4. **Frontend (useChat.js hook):**
    - `sendMessage()` → Sử dụng `const conversationId = currentConversation._id || currentConversation.conversationId`
-   - `loadMoreMessages()` → Sử dụng fallback conversationId
+   - `loadMoreMessages()` → Sử dụng conversationId dự phòng
 
-**Key Changes:**
+**Các thay đổi chính:**
 - Backend normalize: `conversation._id = conversation.conversationId`
-- Frontend fallback: Luôn check cả `_id` và `conversationId`
-- Key prop fix: Sử dụng `key={conv._id || conv.conversationId}`
+- Frontend dự phòng: Luôn kiểm tra cả `_id` và `conversationId`
+- Sửa prop key: Sử dụng `key={conv._id || conv.conversationId}`
 
 ---
 
-#### Issue: "MessageRepository.findByConversationId is not a function"
-**Root Cause:**
-1. `MessageService` gọi `MessageRepository.findByConversationId()` nhưng method không tồn tại
-2. `MessageRepository` chỉ có `getByConversation()` method
-3. Message queries cần cả `conversationId` + `messageId` nhưng routes không pass `conversationId`
+#### Vấn đề: "MessageRepository.findByConversationId không phải là hàm"
+**Nguyên nhân gốc:**
+1. `MessageService` gọi `MessageRepository.findByConversationId()` nhưng phương thức không tồn tại
+2. `MessageRepository` chỉ có phương thức `getByConversation()`
+3. Các truy vấn tin nhắn cần cả `conversationId` + `messageId` nhưng các tuyến không chuyển `conversationId`
 
-**Solution Applied:**
+**Giải pháp được áp dụng:**
 
 1. **Backend Routes (routes/message.js):**
-   - Thêm `conversationId` vào route params tất cả message operations:
-   - `PUT /:conversationId/:messageId` (edit)
-   - `DELETE /:conversationId/:messageId` (delete)
+   - Thêm `conversationId` vào các tham số tuyến cho tất cả các hoạt động tin nhắn:
+   - `PUT /:conversationId/:messageId` (chỉnh sửa)
+   - `DELETE /:conversationId/:messageId` (xóa)
    - `POST /:conversationId/:messageId/delivered`
    - `POST /:conversationId/:messageId/emoji`
    - `DELETE /:conversationId/:messageId/emoji`
 
 2. **Backend Controller (MessageController.js):**
-   - Update tất cả methods để lấy `conversationId` từ params
-   - Pass `conversationId` + `messageId` tới service
+   - Cập nhật tất cả các phương thức để lấy `conversationId` từ các tham số
+   - Chuyển `conversationId` + `messageId` tới dịch vụ
 
 3. **Backend Service (MessageService.js):**
    - `getConversationMessages()` → Sử dụng `getByConversation()` thay vì `findByConversationId()`
@@ -997,7 +1108,7 @@ npm test -- --watch        # Watch mode
    - `markAsSeen(conversationId, userId)` → Sử dụng `getByConversation()` + `update(conversationId, messageId, ...)`
    - `addEmoji(conversationId, messageId, userId, emoji)`
    - `removeEmoji(conversationId, messageId, userId, emoji)`
-   - Tất cả `MessageRepository.update()` calls sửa từ `update(messageId, ...)` → `update(conversationId, messageId, ...)`
+   - Tất cả các lệnh gọi `MessageRepository.update()` sửa từ `update(messageId, ...)` → `update(conversationId, messageId, ...)`
 
 4. **Frontend API (api.js):**
    - `editMessage(conversationId, messageId, content)` → `PUT /messages/:conversationId/:messageId`
@@ -1006,58 +1117,98 @@ npm test -- --watch        # Watch mode
    - `addEmoji(conversationId, messageId, emoji)` → `POST /messages/:conversationId/:messageId/emoji`
    - `removeEmoji(conversationId, messageId, emoji)` → `DELETE /messages/:conversationId/:messageId/emoji`
 
-**Key Changes:**
-- Message operations nhất thiết cần cả conversationId + messageId
-- DynamoDB composite key: (conversationId, messageId)
-- Tất cả message queries phải qua `getByConversation()` GSI
-- Routes và services đồng bộ về signature params
+**Các thay đổi chính:**
+- Các hoạt động tin nhắn bắt buộc cần cả conversationId + messageId
+- Khóa tổng hợp DynamoDB: (conversationId, messageId)
+- Tất cả các truy vấn tin nhắn phải thông qua GSI `getByConversation()`
+- Các tuyến và dịch vụ đồng bộ về chữ ký tham số
 
 ---
 
-#### Issue: "Each child in a list should have a unique 'key' prop" + "Cannot read properties of undefined (reading '_id')"
-**Root Cause:**
-1. ChatWindow map messages nhưng không pass `key` prop cho Message
-2. Message component cố access `message.senderId._id` nhưng backend trả về `message.userId` (string)
-3. Mismatch giữa backend field names (`userId`) và frontend expectations (`senderId._id`)
+#### Vấn đề: "Mỗi thành phần con trong danh sách phải có prop 'key' duy nhất" + "Không thể đọc các thuộc tính của undefined (đọc '_id')"
+**Nguyên nhân gốc:**
+1. ChatWindow map tin nhắn nhưng không chuyển prop `key` cho Message
+2. Thành phần Message cố gắng truy cập `message.senderId._id` nhưng backend trả về `message.userId` (chuỗi)
+3. Sự không khớp giữa các tên trường backend (`userId`) và kỳ vọng frontend (`senderId._id`)
 
-**Solution Applied:**
+**Giải pháp được áp dụng:**
 
 1. **Frontend - Message.jsx:**
-   - Thêm null safety check: `if (!message) return null`
-   - Normalize field names:
+   - Thêm kiểm tra an toàn null: `if (!message) return null`
+   - Chuẩn hóa tên trường:
      - `const senderId = message.senderId || message.userId`
      - `const messageId = message._id || message.messageId`
-   - Fix comparison: `senderId === currentUserId` thay vì `message.senderId._id === currentUserId`
+   - Sửa so sánh: `senderId === currentUserId` thay vì `message.senderId._id === currentUserId`
 
 2. **Frontend - ChatWindow.jsx:**
-   - Sửa key prop: `key={message._id || message.messageId}` (fallback cho cả hai)
-   - Sửa senderInfo lookup: `p._id === (message.senderId || message.userId)`
-   - Filter expression match message userId/senderId
+   - Sửa prop key: `key={message._id || message.messageId}` (dự phòng cho cả hai)
+   - Sửa tra cứu senderInfo: `p._id === (message.senderId || message.userId)`
+   - Biểu thức bộ lọc khớp userId/senderId tin nhắn
 
-3. **Frontend - ErrorBoundary.jsx (NEW):**
-   - Tạo component ErrorBoundary để catch React errors
-   - Display user-friendly error messages
-   - Allow retry action
+3. **Frontend - ErrorBoundary.jsx (MỚI):**
+   - Tạo thành phần ErrorBoundary để bắt lỗi React
+   - Hiển thị các thông báo lỗi thân thiện với người dùng
+   - Cho phép hành động thử lại
 
 4. **Frontend - ChatPage.jsx:**
-   - Import và wrap ChatWindow với `<ErrorBoundary>`
-   - Prevent full app crash khi Message component có error
+   - Nhập và bao bọc ChatWindow với `<ErrorBoundary>`
+   - Ngăn chặn sự cố ứng dụng đầy đủ khi thành phần Message có lỗi
 
-**Key Changes:**
-- Message component: Normalize senderId & messageId với fallback
-- ChatWindow: Add proper key prop + fallback fields
-- Error handling: Add ErrorBoundary cho graceful error display
-- Null safety: Check message exists trước khi render
+**Các thay đổi chính:**
+- Thành phần Message: Chuẩn hóa senderId & messageId với dự phòng
+- ChatWindow: Thêm prop key thích hợp + trường dự phòng
+- Xử lý lỗi: Thêm ErrorBoundary cho màn hình lỗi một cách nhạy cảm
+- An toàn null: Kiểm tra tin nhắn tồn tại trước khi kết xuất
 
-### Performance Tips
-- Use pagination for lists
-- Cache frequently accessed data in Redis
-- Optimize Socket.IO events (send only necessary data)
-- Use indexes in DynamoDB for queries
-- Lazy load components in React
+### Mẹo hiệu suất
+- Sử dụng phân trang cho các danh sách
+- Bộ nhớ đệm dữ liệu được truy cập thường xuyên trong Redis
+- Tối ưu hóa các sự kiện Socket.IO (chỉ gửi dữ liệu cần thiết)
+- Sử dụng các chỉ mục trong DynamoDB cho các truy vấn
+- Tải một cách lười biếng các thành phần trong React
 
 ---
 
-**End of Project Overview**
+## 📋 NHẬT KÝ THAY ĐỔI
 
-This document serves as a quick reference guide for understanding TixChat without reading all source code. For detailed information, refer to specific documentation files in the `docs/` folder.
+### Phiên bản 1.1.0 (13 tháng 4, 2026)
+**Các bản sửa chữa & Cải tiến lớn:**
+- ✅ Đã sửa các truy vấn DynamoDB ParticipantRepository - sử dụng GSI thích hợp
+- ✅ Đã sửa lấy cuộc trò chuyện - loại bỏ phụ thuộc creatorId-index bị hỏng
+- ✅ Đã sửa sự không khớp _id/conversationId frontend - chuẩn hóa trường thích hợp
+- ✅ Đã sửa kết xuất thành phần Message - kiểm tra an toàn null
+- ✅ Thêm thành phần ErrorBoundary - xử lý lỗi React một cách nhạy cảm
+- ✅ Đã sửa cảnh báo prop key trong danh sách cuộc trò chuyện và tin nhắn
+- ✅ Cải thiện các thông báo lỗi và ghi nhật ký trên toàn bộ backend
+- ✅ Xử lý lỗi tốt hơn trong dịch vụ cuộc trò chuyện và tin nhắn
+- ✅ Cơ chế dự phòng cho các cuộc trò chuyện bị thiếu
+- ✅ Tài liệu toàn diện về tất cả các bản sửa chữa trong phần Vấn đề đã biết
+
+**Tối ưu hóa cơ sở dữ liệu:**
+- Sử dụng GSI DynamoDB thích hợp cho các truy vấn phức tạp
+- Giảm quét không cần thiết
+- Thiết kế chỉ mục tốt hơn cho các truy vấn phổ biến
+
+**Cải tiến Frontend:**
+- Chuẩn hóa tên trường thích hợp (userId/senderId, _id/conversationId)
+- Xử lý lỗi nhạy cảm với ErrorBoundary
+- Kiểm tra an toàn null tốt hơn trong thành phần Message
+- Các prop key React thích hợp cho kết xuất danh sách
+
+---
+
+### Phiên bản 1.0.0 (Phát hành trước đó)
+**Các tính năng ban đầu:**
+- Hệ thống xác thực người dùng với JWT
+- Tích hợp cơ sở dữ liệu DynamoDB
+- Nhắn tin thời gian thực với Socket.IO
+- Hồ sơ người dùng với tải lên avatar S3
+- Quản lý cuộc trò chuyện
+- Xác minh email với OTP
+- Chức năng đặt lại mật khẩu
+
+---
+
+**Kết thúc Tổng quan Dự án**
+
+Tài liệu này phục vụ như một hướng dẫn tham khảo nhanh để hiểu TixChat mà không cần đọc toàn bộ mã nguồn. Để biết thêm thông tin chi tiết, vui lòng tham khảo các tệp tài liệu cụ thể trong thư mục `docs/`.

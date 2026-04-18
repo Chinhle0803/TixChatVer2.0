@@ -12,6 +12,10 @@ router.post('/', (req, res, next) => {
   messageController.sendMessage(req, res, next)
 })
 router.post(
+  '/attachment/forward',
+  messageController.forwardAttachmentByUrl.bind(messageController)
+)
+router.post(
   '/attachment',
   uploadMessageAttachment.single('attachment'),
   messageController.sendAttachmentMessage.bind(messageController)

@@ -4,7 +4,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background-color: #fff;
+  background: var(--chat-bg, #fff);
 }
 
 .no-conversation {
@@ -89,6 +89,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  background: var(--chat-bg, #fff);
 }
 
 .load-more-button {
@@ -177,6 +178,16 @@
   padding: 12px 20px;
   border-top: 1px solid #e5e5e5;
   background-color: #fff;
+}
+
+.read-only-notice {
+  padding: 10px 14px;
+  border: 1px solid #fecaca;
+  background-color: #fff1f2;
+  color: #b91c1c;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: center;
 }
 
 .reply-preview {

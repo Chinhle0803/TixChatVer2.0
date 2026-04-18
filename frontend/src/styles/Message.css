@@ -28,11 +28,89 @@
   justify-content: flex-start;
 }
 
+.message.system {
+  justify-content: center;
+  margin: 8px 0;
+}
+
+.message.system .message-wrapper {
+  max-width: 100%;
+  align-items: center;
+}
+
+.message.system .message-content {
+  background: transparent !important;
+  color: #6b7280;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  align-items: center;
+  text-align: center;
+}
+
+.message.system .message-text {
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #6b7280;
+  margin: 0;
+}
+
+.message.system .message-actions,
+.message.system .message-footer,
+.message.system .message-reactions,
+.message.system .message-reply,
+.message.system .message-edited,
+.message.system .message-sender {
+  display: none !important;
+}
+
 .message-sender {
   font-size: 12px;
   font-weight: 600;
   color: #00CCCC;
   margin-bottom: 4px;
+}
+
+.message-sender-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.message-sender-row.own {
+  justify-content: flex-end;
+  align-self: flex-end;
+}
+
+.message-sender-row.other {
+  justify-content: flex-start;
+  align-self: flex-start;
+}
+
+.message-sender-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-sender-avatar.placeholder {
+  background: rgba(0, 204, 204, 0.18);
+  color: #0f766e;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.message-sender-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f766e;
+  line-height: 1;
 }
 
 .message-content {
@@ -45,14 +123,14 @@
 }
 
 .message.own .message-content {
-  background: linear-gradient(135deg, #00CCCC, #009999);
-  color: white;
+  background: var(--bubble-own-bg, linear-gradient(135deg, #00CCCC, #009999));
+  color: var(--bubble-own-color, #ffffff);
   border-bottom-right-radius: 4px;
 }
 
 .message.other .message-content {
-  background-color: #f0f2f5;
-  color: #000;
+  background: var(--bubble-other-bg, #f0f2f5);
+  color: var(--bubble-other-color, #000000);
   border-bottom-left-radius: 4px;
 }
 
@@ -73,6 +151,15 @@
 .message-text {
   margin: 0;
   word-break: break-word;
+}
+
+.message-forwarded-label {
+  display: inline-block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.72;
 }
 
 .message-attachment-link {

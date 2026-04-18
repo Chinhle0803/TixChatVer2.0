@@ -259,13 +259,65 @@ export const initializeSocketHandlers = (io) => {
 
   conversationEvents.on(CONVERSATION_EVENTS.PARTICIPANT_ADDED, (data) => {
     io.to(`conversation:${data.conversationId}`).emit('participant:added', {
+      conversationId: data.conversationId,
       participantId: data.participantId,
+      addedBy: data.addedBy,
     })
+
+    if (data?.participantId) {
+      io.to(`user:${data.participantId}`).emit('participant:added', {
+        conversationId: data.conversationId,
+        participantId: data.participantId,
+        addedBy: data.addedBy,
+      })
+    }
   })
 
   conversationEvents.on(CONVERSATION_EVENTS.PARTICIPANT_REMOVED, (data) => {
     io.to(`conversation:${data.conversationId}`).emit('participant:removed', {
       participantId: data.participantId,
+    })
+  })
+
+  conversationEvents.on(CONVERSATION_EVENTS.PARTICIPANT_ROLE_UPDATED, (data) => {
+    io.to(`conversation:${data.conversationId}`).emit('participant:role_updated', {
+      conversationId: data.conversationId,
+      targetUserId: data.targetUserId,
+      oldRole: data.oldRole,
+      newRole: data.newRole,
+      changedByUserId: data.changedByUserId,
+    })
+  })
+
+  conversationEvents.on(CONVERSATION_EVENTS.CREATED, (data) => {
+    const participantIds = Array.isArray(data?.participants)
+      ? data.participants
+      : []
+
+    participantIds.forEach((participantId) => {
+      io.to(`user:${participantId}`).emit('conversation:created', {
+        conversationId: data.conversationId,
+        type: data.type,
+        participants: participantIds,
+      })
+    })
+  })
+
+  conversationEvents.on(CONVERSATION_EVENTS.DISSOLVED, (data) => {
+    const participantIds = Array.isArray(data?.participantIds)
+      ? data.participantIds
+      : []
+
+    participantIds.forEach((participantId) => {
+      io.to(`user:${participantId}`).emit('conversation:dissolved', {
+        conversationId: data.conversationId,
+        dissolvedByUserId: data.dissolvedByUserId,
+      })
+    })
+
+    io.to(`conversation:${data.conversationId}`).emit('conversation:dissolved', {
+      conversationId: data.conversationId,
+      dissolvedByUserId: data.dissolvedByUserId,
     })
   })
 
